@@ -25,6 +25,9 @@ internal object Presentation {
 
     fun path(value: String): String = value.ifEmpty { MstBundle.message("value.ideDefault") }
 
-    fun summary(values: MavenValues): String =
-        MstBundle.message("values.summary", home(values), path(values.userSettingsFile), path(values.localRepository))
+    fun summaryLines(values: MavenValues): List<String> = listOf(
+        MstBundle.message("values.home", home(values)),
+        MstBundle.message("values.userSettings", path(values.userSettingsFile)),
+        MstBundle.message("values.localRepository", path(values.localRepository)),
+    )
 }

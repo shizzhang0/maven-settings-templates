@@ -887,7 +887,9 @@ source.projectCustom=custom values of this project
 source.rule=template "{0}" (folder rule {1})
 source.default=default template "{0}"
 value.ideDefault=(IDE default)
-values.summary=Maven home: {0} · Settings: {1} · Repository: {2}
+values.home=Maven home: {0}
+values.userSettings=User settings file: {0}
+values.localRepository=Local repository: {0}
 ```
 
 - [ ] **Step 2: 实现 `TemplatesSettings.kt`**
@@ -1131,8 +1133,11 @@ internal object Presentation {
 
     fun path(value: String): String = value.ifEmpty { MstBundle.message("value.ideDefault") }
 
-    fun summary(values: MavenValues): String =
-        MstBundle.message("values.summary", home(values), path(values.userSettingsFile), path(values.localRepository))
+    fun summaryLines(values: MavenValues): List<String> = listOf(
+        MstBundle.message("values.home", home(values)),
+        MstBundle.message("values.userSettings", path(values.userSettingsFile)),
+        MstBundle.message("values.localRepository", path(values.localRepository)),
+    )
 }
 ```
 
@@ -1558,7 +1563,7 @@ current.follow=Follow folder rules and the default template
 current.template=Use template:
 current.custom=Custom values:
 current.notManaged=Not managed (leave the Maven settings of this project alone)
-current.effective=Effective: {0}. {1}
+current.effective=Effective: {0}
 current.effective.none=Effective: not managed. The plugin leaves the Maven settings of this project alone.
 ```
 
@@ -1607,7 +1612,7 @@ internal class RulesPanel(private val project: Project?, private val templates: 
         }
 
         override fun getColumnClass(column: Int): Class<*> =
-            if (column == COLUMN_ENABLED) java.lang.Boolean::class.java else Any::class.java
+            if (column == COLUMN_ENABLED) Boolean::class.javaObjectType else Any::class.java
 
         override fun isCellEditable(row: Int, column: Int): Boolean = column != COLUMN_FOLDER
 
@@ -1718,6 +1723,7 @@ package io.github.shizzhang0.mavensettingstemplates.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.DumbAwareAction
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.table.JBTable
 import io.github.shizzhang0.mavensettingstemplates.MstBundle
@@ -1748,7 +1754,7 @@ internal class ProjectRecordsPanel(private val templates: () -> List<Template>) 
         override fun getValueAt(row: Int, column: Int): Any {
             val record = rows[row].second
             return when (column) {
-                0 -> record.path
+                0 -> FileUtil.toSystemDependentName(record.path)
                 1 -> describeBinding(record.binding)
                 else -> if (File(record.path).exists()) "" else MstBundle.message("records.missing")
             }
@@ -1804,16 +1810,17 @@ package io.github.shizzhang0.mavensettingstemplates.ui
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.util.io.FileUtil
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.ui.CollectionComboBoxModel
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBRadioButton
 import com.intellij.ui.dsl.builder.AlignX
+import com.intellij.ui.dsl.builder.Row
 import com.intellij.ui.dsl.builder.panel
 import io.github.shizzhang0.mavensettingstemplates.MstBundle
 import io.github.shizzhang0.mavensettingstemplates.core.Binding
 import io.github.shizzhang0.mavensettingstemplates.core.BindingMode
 import io.github.shizzhang0.mavensettingstemplates.core.Template
-import javax.swing.ButtonGroup
 import javax.swing.JComponent
 
 /** The "Current Project" block. Not shown for the default project ("Settings for New Projects"). */
@@ -1833,24 +1840,26 @@ internal class CurrentProjectPanel(
     private val customEditor = TemplateEditor(project, showName = false)
     private val effectiveLabel = JBLabel()
     private var customValues = Template()
+    private lateinit var customRow: Row
 
     val component: JComponent = panel {
         row { label(FileUtil.toSystemDependentName(project.basePath.orEmpty())) }
-        row { cell(followRadio) }
-        row {
-            cell(templateRadio)
-            cell(templateCombo)
+        // The DSL rejects radio buttons outside buttonsGroup and creates the ButtonGroup itself.
+        buttonsGroup {
+            row { cell(followRadio) }
+            row {
+                cell(templateRadio)
+                cell(templateCombo)
+            }
+            row { cell(customRadio) }
+            customRow = row { cell(customEditor.component).align(AlignX.FILL) }
+            row { cell(notManagedRadio) }
         }
-        row { cell(customRadio) }
-        row { cell(customEditor.component).align(AlignX.FILL) }
-        row { cell(notManagedRadio) }
         row { cell(effectiveLabel) }
     }
 
     init {
-        val group = ButtonGroup()
         radios.forEach { radio ->
-            group.add(radio)
             radio.addActionListener {
                 updateEnabledState()
                 onChanged()
@@ -1890,13 +1899,15 @@ internal class CurrentProjectPanel(
         templateCombo.model = CollectionComboBoxModel(list, list.firstOrNull { it.id == selectedId })
     }
 
-    fun setEffective(text: String) {
-        effectiveLabel.text = text
+    /** One line per entry, so long paths never widen the whole settings page. */
+    fun setEffective(lines: List<String>) {
+        effectiveLabel.text = lines.joinToString("<br>", "<html>", "</html>") { StringUtil.escapeXmlEntities(it) }
     }
 
     private fun updateEnabledState() {
         templateCombo.isEnabled = templateRadio.isSelected
         customEditor.setEnabled(customRadio.isSelected)
+        customRow.visible(customRadio.isSelected)
     }
 }
 ```
@@ -2034,9 +2045,10 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
         val resolved = SettingsResolver(pendingConfig(templates)).resolve(path, current.currentBinding())
         current.setEffective(
             if (resolved == null) {
-                MstBundle.message("current.effective.none")
+                listOf(MstBundle.message("current.effective.none"))
             } else {
-                MstBundle.message("current.effective", Presentation.describe(resolved.source), Presentation.summary(resolved.values))
+                listOf(MstBundle.message("current.effective", Presentation.describe(resolved.source))) +
+                    Presentation.summaryLines(resolved.values)
             },
         )
     }
