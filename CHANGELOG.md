@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-23
+
 ### Added
 
 - Templates for Maven home, user settings file and local repository, with `${user.home}` support.
