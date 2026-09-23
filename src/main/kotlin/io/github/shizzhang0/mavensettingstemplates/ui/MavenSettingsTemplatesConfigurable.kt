@@ -1,5 +1,6 @@
 package io.github.shizzhang0.mavensettingstemplates.ui
 
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
 import com.intellij.ui.dsl.builder.Align
@@ -7,6 +8,7 @@ import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.panel
 import io.github.shizzhang0.mavensettingstemplates.MstBundle
 import io.github.shizzhang0.mavensettingstemplates.Presentation
+import io.github.shizzhang0.mavensettingstemplates.apply.SettingsAppliedHandler
 import io.github.shizzhang0.mavensettingstemplates.core.Binding
 import io.github.shizzhang0.mavensettingstemplates.core.BindingMode
 import io.github.shizzhang0.mavensettingstemplates.core.SettingsResolver
@@ -56,7 +58,10 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
     }
 
     override fun isModified(): Boolean {
-        val templates = templatesPanel ?: return false
+        val templates = templatesPanel ?: run {
+            thisLogger().info("MST-DIAG isModified: no panel")
+            return false
+        }
         if (pendingConfig(templates) != TemplatesSettings.getInstance().snapshot()) return true
         if (recordsPanel?.removedKeys().orEmpty().isNotEmpty()) return true
         val current = currentPanel ?: return false
@@ -65,7 +70,10 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
 
     override fun apply() {
         val templates = templatesPanel ?: return
-        TemplatesSettings.getInstance().replace(pendingConfig(templates))
+        // TEMPORARY diagnostics for the lost-template-edit investigation; remove once fixed.
+        val pending = pendingConfig(templates)
+        thisLogger().info("MST-DIAG apply: " + pending.templates.joinToString { "${it.name}=${it.localRepository}" })
+        TemplatesSettings.getInstance().replace(pending)
         val records = ProjectRecords.getInstance()
         records.remove(recordsPanel?.removedKeys().orEmpty())
         val current = currentPanel
@@ -77,6 +85,7 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
             }
         }
         reset()
+        SettingsAppliedHandler.onApplied()
     }
 
     override fun reset() {

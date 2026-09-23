@@ -613,7 +613,7 @@ class DecisionTempTest {
     private val baseline = MavenValues()
 
     private fun decideFor(target: MavenValues?, current: MavenValues, last: MavenValues?, ignored: MavenValues? = null, trigger: Trigger = Trigger.OPEN) =
-        decide(target, current, last, baseline, ignored, trigger)
+        decide(target, current, last, listOf(baseline), ignored, trigger)
 
     @Test fun noTargetIsNone() = assertEquals(Decision.NONE, decideFor(null, a, a))
 
@@ -795,14 +795,14 @@ enum class Decision {
 }
 
 /**
- * Design §5.2. [target] null means "leave the project alone". [baseline] (what a brand-new project gets)
- * is only consulted on [Trigger.OPEN]: matching it then means `.idea` was recreated, not edited by hand.
+ * Design §5.2. [target] null means "leave the project alone". [baselines] (what a project gets when its `.idea`
+ * is recreated) are only consulted on [Trigger.OPEN]: matching one then means `.idea` was recreated, not edited.
  */
 fun decide(
     target: MavenValues?,
     current: MavenValues,
     lastApplied: MavenValues?,
-    baseline: MavenValues?,
+    baselines: List<MavenValues>,
     ignored: MavenValues?,
     trigger: Trigger,
 ): Decision = when {
@@ -810,7 +810,7 @@ fun decide(
     current.sameAs(target) -> if (target.sameAs(lastApplied)) Decision.NONE else Decision.RECORD
     lastApplied == null -> Decision.FIRST_APPLY
     current.sameAs(lastApplied) -> Decision.FOLLOW
-    trigger == Trigger.OPEN && current.sameAs(baseline) -> Decision.FOLLOW
+    trigger == Trigger.OPEN && baselines.any { current.sameAs(it) } -> Decision.FOLLOW
     current.sameAs(ignored) -> Decision.NONE
     else -> Decision.NOTIFY_DRIFT
 }
@@ -2242,8 +2242,11 @@ object DefaultProjectSeeder {
         }
     }
 
-    /** What a brand-new project starts with (design §5.2 baseline); IDE defaults when unknown. O(1). */
-    fun baseline(): MavenValues = cachedBaseline ?: MavenValues()
+    /**
+     * What a project gets when its `.idea` is (re)created (design §5.2 baseline). O(1). A never-seen project
+     * inherits the default project's values; a project the IDE has opened before gets plain IDE defaults instead.
+     */
+    fun baselines(): List<MavenValues> = listOfNotNull(cachedBaseline, MavenValues())
 }
 
 class SeedDefaultProjectListener : AppLifecycleListener {
@@ -2315,7 +2318,7 @@ class ProjectEvaluator(private val project: Project) {
         }
         val target = resolved.values
         val current = MavenSettingsAccess.read(project)
-        val decision = decide(target, current, record?.lastApplied, DefaultProjectSeeder.baseline(), ignored, trigger)
+        val decision = decide(target, current, record?.lastApplied, DefaultProjectSeeder.baselines(), ignored, trigger)
         when (decision) {
             Decision.NONE -> expirePendingDrift()
             Decision.RECORD -> {
@@ -2772,6 +2775,13 @@ Expected: `BUILD SUCCESSFUL`。报告里没有 `Compatibility problems`，也没
 - Automatic application when a project opens, with an Undo notification the first time a project is managed.
 - Drift notifications with Restore template values, Save as project custom, and Ignore.
 ```
+
+- [ ] **Step 4b: 删除临时诊断日志**
+
+Task 6 调查"模板修改丢失"时，在 `MavenSettingsTemplatesConfigurable` 的 `apply()` 和 `isModified()` 里加了带 `MST-DIAG` 前缀的 `thisLogger().info(...)`。确认回归中没有再出现修改丢失后，删掉这些行和 `thisLogger` 的 import：
+
+Run: `grep -rn "MST-DIAG" src/`
+Expected: 删除后没有输出。
 
 - [ ] **Step 5: 确认没有遗留测试**
 

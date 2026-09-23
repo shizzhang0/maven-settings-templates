@@ -181,7 +181,7 @@ if rec.lastApplied == null:                             // ① 首次接管
     提示 "Applied template 'X'" [Undo]（可自动消失）
 
 else if current ≈ rec.lastApplied                        // ② 没人动过（模板或规则变了）
-     or (trigger == OPEN and current ≈ baseline):        //    或 .idea 被删 / 新 worktree
+     or (trigger == OPEN and current ≈ 任一 baseline): //    或 .idea 被删 / 新 worktree
     write(target); rec.lastApplied = target; sync()      //    静默跟随
 
 else:                                                    // ③ 被手动改过
@@ -189,7 +189,9 @@ else:                                                    // ③ 被手动改过
     常驻提醒（带差异）[Restore template values] [Save as project custom] [Ignore]
 ```
 
-`baseline` 是一个全新项目打开时会拿到的值，也就是**打开时从 default project 读到的当前 Maven 设置**。设置了默认模板时，它就是 §7.1 预写入的默认模板的值；没设默认模板时，它是用户在 "Settings for New Projects" 里配置的值。读取失败时，退回 IDE 默认值（Bundled Maven 3 / 空 / 空）。
+`baseline` 是项目的 `.idea` 被（重新）创建时会拿到的值。**实测发现有两种**，两者都算：
+- **IDE 从未打开过的项目**会继承 default project 的 Maven 设置：设置了默认模板时就是 §7.1 预写入的值，否则是用户在 "Settings for New Projects" 里配置的值。
+- **IDE 打开过的项目**，删掉 `.idea` 后再打开，拿到的是 IDE 出厂默认值（Bundled Maven 3 / 空 / 空），不会再继承 default project。
 
 **baseline 规则的取舍**：删除 `.idea` 后重新打开，Maven 设置会回到 baseline，这时 current ≠ lastApplied，不能当成手动修改，否则每次删 `.idea` 都会误报。代价是：如果用户在两次会话之间手动把某个项目改回了恰好等于 baseline 的值，下次打开时会被静默覆盖。这种情况很少见，而且"改回默认"本身就有歧义，可以接受。运行时（`CHANGED_AT_RUNTIME`）的修改一律按 ③ 处理，不走 baseline 判断。
 
