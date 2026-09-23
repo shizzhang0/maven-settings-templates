@@ -2,16 +2,28 @@
 <idea-plugin>
     <id>io.github.shizzhang0.mavensettingstemplates</id>
     <name>Maven Settings Templates</name>
-    <vendor url="https://github.com/shizzhang0">Timothy</vendor>
+    <vendor url="https://github.com/shizzhang0/maven-settings-templates" email="shizzhang0@gmail.com">Timothy</vendor>
 
     <description><![CDATA[
         Manage Maven home, user settings file and local repository as reusable templates,
         and apply them to projects automatically.
+        <p>
+        If you work on projects for different companies or teams, each one usually needs its own
+        <code>settings.xml</code> and local repository. New clones, new git worktrees and deleted
+        <code>.idea</code> folders all start with the wrong values. This plugin keeps the right ones in place.
+        </p>
         <ul>
-          <li>Map a folder to a template: every project under it uses that template, including new clones and git worktrees.</li>
-          <li>Override the choice for a single project, or leave a project alone.</li>
-          <li>Get notified when the Maven settings of a project drift from its template.</li>
+          <li><b>Templates</b>: Maven home (bundled Maven 3, Maven wrapper or a custom path), user settings file
+              and local repository. Empty fields mean the IDE default; paths may contain <code>${user.home}</code>.</li>
+          <li><b>Folder rules</b>: every project under a folder uses its template. The deepest matching folder wins.</li>
+          <li><b>Default template</b> for projects that match no rule, and <b>per-project overrides</b>.</li>
+          <li><b>Applied when a project opens</b>, including new clones and git worktrees.</li>
+          <li><b>Drift notifications</b> when a project's Maven settings no longer match its template,
+              with Restore, Save as project custom and Ignore.</li>
         </ul>
+        <p>
+        Configure it under <b>Settings | Build, Execution, Deployment | Build Tools | Maven | Settings Templates</b>.
+        </p>
         ]]></description>
 
     <depends>com.intellij.modules.platform</depends>

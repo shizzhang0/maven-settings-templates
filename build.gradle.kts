@@ -1,3 +1,4 @@
+import org.jetbrains.changelog.Changelog
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -24,6 +25,8 @@ dependencies {
     }
 }
 
+val pluginVersion = project.version.toString()
+
 intellijPlatform {
     pluginConfiguration {
         ideaVersion {
@@ -31,11 +34,34 @@ intellijPlatform {
             // No upper bound: new IDE versions can install the plugin (design decision D1).
             untilBuild = provider { null }
         }
+        // "What's New" on JetBrains Marketplace and in the IDE, taken from this version's CHANGELOG.md section.
+        changeNotes = provider {
+            with(changelog) {
+                renderItem(
+                    (getOrNull(pluginVersion) ?: getUnreleased()).withHeader(false).withEmptySections(false),
+                    Changelog.OutputType.HTML,
+                )
+            }
+        }
     }
+    // Needed only for publishing (see docs/publishing.md); the key never lives in the repository.
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+    // publishPlugin reads the Marketplace token from the ORG_GRADLE_PROJECT_intellijPlatformPublishingToken
+    // environment variable (the plugin's default property), so no publishing block is needed.
     pluginVerification {
         ides {
             // Verify against the platform the plugin is built with; no extra IDE downloads.
             current()
         }
     }
+}
+
+// verifyPluginSignature reads signPlugin's output without declaring it; Gradle 9 rejects that
+// ("implicit dependency") when both run in one build.
+tasks.named("verifyPluginSignature") {
+    dependsOn("signPlugin")
 }
