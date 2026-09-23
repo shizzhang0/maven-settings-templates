@@ -30,6 +30,17 @@ Maven import runs against the wrong repository. This plugin keeps the right valu
 - Configuration is stored at the application level and keyed by project path, so it survives
   deleting `.idea`.
 
+## 📸 Screenshots
+
+The settings page: the current project follows the folder rule for `C:\demo\acme`, so it gets the
+"Acme Corp" template.
+
+![Settings page](docs/screenshots/settings.png)
+
+A notification appears when a project's Maven settings no longer match its template.
+
+![Drift notification](docs/screenshots/drift.png)
+
 ## 📦 Installation
 
 The plugin is not on JetBrains Marketplace yet. Install it from a release ZIP:
