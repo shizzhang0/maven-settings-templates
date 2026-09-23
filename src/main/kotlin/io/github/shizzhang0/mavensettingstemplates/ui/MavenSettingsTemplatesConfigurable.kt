@@ -12,6 +12,7 @@ import io.github.shizzhang0.mavensettingstemplates.apply.SettingsAppliedHandler
 import io.github.shizzhang0.mavensettingstemplates.core.Binding
 import io.github.shizzhang0.mavensettingstemplates.core.BindingMode
 import io.github.shizzhang0.mavensettingstemplates.core.SettingsResolver
+import io.github.shizzhang0.mavensettingstemplates.core.Template
 import io.github.shizzhang0.mavensettingstemplates.core.TemplatesConfig
 import io.github.shizzhang0.mavensettingstemplates.settings.ProjectRecords
 import io.github.shizzhang0.mavensettingstemplates.settings.TemplatesSettings
@@ -34,7 +35,9 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
         val templates = TemplatesPanel(project, ::countReferences, ::onTemplatesChanged)
         val rules = RulesPanel(project) { templates.currentTemplates() }
         val records = ProjectRecordsPanel { templates.currentTemplates() }
-        val current = projectPath?.let { CurrentProjectPanel(project, { templates.currentTemplates() }, ::refreshEffective) }
+        val current = projectPath?.let {
+            CurrentProjectPanel(project, { templates.currentTemplates() }, ::inheritedTemplate, ::refreshEffective)
+        }
         templatesPanel = templates
         rulesPanel = rules
         recordsPanel = records
@@ -58,21 +61,20 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
     }
 
     override fun isModified(): Boolean {
-        val templates = templatesPanel ?: run {
-            thisLogger().info("MST-DIAG isModified: no panel")
-            return false
-        }
-        if (pendingConfig(templates) != TemplatesSettings.getInstance().snapshot()) return true
-        if (recordsPanel?.removedKeys().orEmpty().isNotEmpty()) return true
+        val templates = templatesPanel ?: return false
+        if (pendingConfig(templates) != TemplatesSettings.getInstance().snapshot()) return diag("isModified: templates/rules")
+        if (recordsPanel?.removedKeys().orEmpty().isNotEmpty()) return diag("isModified: record removals")
         val current = currentPanel ?: return false
-        return current.currentBinding() != persistedBinding()
+        val binding = current.currentBinding()
+        val persisted = persistedBinding()
+        return if (binding != persisted) diag("isModified: binding $binding vs persisted $persisted") else false
     }
 
     override fun apply() {
         val templates = templatesPanel ?: return
-        // TEMPORARY diagnostics for the lost-template-edit investigation; remove once fixed.
+        // TEMPORARY diagnostics for the lost-edit investigation (MST-DIAG); remove once fixed.
         val pending = pendingConfig(templates)
-        thisLogger().info("MST-DIAG apply: " + pending.templates.joinToString { "${it.name}=${it.localRepository}" })
+        diag("apply: " + pending.templates.joinToString { "${it.name}=${it.localRepository}" })
         TemplatesSettings.getInstance().replace(pending)
         val records = ProjectRecords.getInstance()
         records.remove(recordsPanel?.removedKeys().orEmpty())
@@ -80,7 +82,9 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
         val path = projectPath
         if (current != null && path != null) {
             val binding = current.currentBinding()
-            if (binding != persistedBinding()) {
+            val persisted = persistedBinding()
+            diag("apply binding: $binding (persisted $persisted)")
+            if (binding != persisted) {
                 records.update(ProjectRecords.keyOf(path), path) { it.binding = binding }
             }
         }
@@ -88,7 +92,13 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
         SettingsAppliedHandler.onApplied()
     }
 
+    private fun diag(message: String): Boolean {
+        thisLogger().info("MST-DIAG #${System.identityHashCode(this)} $message")
+        return true
+    }
+
     override fun reset() {
+        diag("reset: persisted binding ${persistedBinding()}")
         val config = TemplatesSettings.getInstance().snapshot()
         templatesPanel?.reset(config.templates, config.defaultTemplateId)
         rulesPanel?.reset(config.rules)
@@ -119,6 +129,14 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
             record.binding?.mode == BindingMode.TEMPLATE && record.binding?.templateId == templateId
         }
         return rules to projects
+    }
+
+    /** The template this project follows without a binding: its deepest folder rule, else the default template. */
+    private fun inheritedTemplate(): Template? {
+        val templates = templatesPanel ?: return null
+        val path = projectPath ?: return null
+        val config = pendingConfig(templates)
+        return SettingsResolver(config).matchingRule(path)?.second ?: config.template(config.defaultTemplateId)
     }
 
     private fun onTemplatesChanged() {

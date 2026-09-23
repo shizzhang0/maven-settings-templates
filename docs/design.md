@@ -33,7 +33,7 @@
 | D4 | 路径规则形式 | **文件夹 → 模板**。用文件夹选择器选取，匹配该文件夹及其所有子目录。不支持通配符 |
 | D5 | 多条规则同时命中 | **嵌套最深（最具体）的文件夹优先**。不需要手动排序；同一文件夹不允许重复配置 |
 | D6 | 强制模式 | **取消强制模式开关**，改为基于 lastApplied 的统一模型（见 §5） |
-| D7 | 首次接管的提示 | 可自动消失的提示，带 [Undo] 按钮 |
+| D7 | 首次接管的提示 | **常驻提示**（sticky balloon），带 [Undo] 按钮。原定为可自动消失，实测时很容易错过，改为常驻 |
 | D8 | "Ignore" 的作用范围 | 仅本次 IDE 会话 |
 | D9 | `${user.home}` | 支持，写入 IDE 前展开。**不做**"选择路径后自动替换成 `${user.home}`" |
 | D10 | 设置页 | 只有一个项目级页面，挂在 Maven 设置页下面 |
@@ -178,7 +178,7 @@ if current ≈ target:
 if rec.lastApplied == null:                             // ① 首次接管
     before = current
     write(target); rec.lastApplied = target; sync()
-    提示 "Applied template 'X'" [Undo]（可自动消失）
+    常驻提示 "Applied template 'X'" [Undo]
 
 else if current ≈ rec.lastApplied                        // ② 没人动过（模板或规则变了）
      or (trigger == OPEN and current ≈ 任一 baseline): //    或 .idea 被删 / 新 worktree
@@ -369,7 +369,7 @@ notify/     MstNotifications.kt
   - description 改成真实内容（英文）
 - `README.md`：把模板自带的说明换成这个插件的英文介绍。
 - 删除 `MyToolWindowFactory` 和 `MyMessageBundle`，新建英文资源包 `messages/MavenSettingsTemplatesBundle.properties`。
-- 注册 `notificationGroup`，分两种：常驻提醒（sticky balloon）和可自动消失的提示（balloon）。
+- 注册两个 `notificationGroup`（漂移提醒、应用提示），都用常驻提示（sticky balloon）。
 
 ## 11. 错误处理
 

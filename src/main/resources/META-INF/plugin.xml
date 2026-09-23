@@ -27,11 +27,13 @@
         <postStartupActivity implementation="io.github.shizzhang0.mavensettingstemplates.apply.MavenSettingsTemplatesStartupActivity"
                              order="first"/>
         <notificationGroup id="MavenSettingsTemplates.Drift" displayType="STICKY_BALLOON" key="notification.group.drift"/>
-        <notificationGroup id="MavenSettingsTemplates.Info" displayType="BALLOON" key="notification.group.info"/>
+        <notificationGroup id="MavenSettingsTemplates.Info" displayType="STICKY_BALLOON" key="notification.group.info"/>
     </extensions>
 
     <applicationListeners>
         <listener class="io.github.shizzhang0.mavensettingstemplates.apply.SeedDefaultProjectListener"
                   topic="com.intellij.ide.AppLifecycleListener"/>
+        <listener class="io.github.shizzhang0.mavensettingstemplates.apply.ReattachOnActivationListener"
+                  topic="com.intellij.openapi.application.ApplicationActivationListener"/>
     </applicationListeners>
 </idea-plugin>

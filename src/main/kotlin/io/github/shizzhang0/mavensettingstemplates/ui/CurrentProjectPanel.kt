@@ -20,6 +20,8 @@ import javax.swing.JComponent
 internal class CurrentProjectPanel(
     project: Project,
     private val templates: () -> List<Template>,
+    /** Values the project would get from rules / the default template; pre-fills a first "Custom values" edit. */
+    private val inheritedValues: () -> Template?,
     private val onChanged: () -> Unit,
 ) {
     private val followRadio = JBRadioButton(MstBundle.message("current.follow"))
@@ -33,6 +35,8 @@ internal class CurrentProjectPanel(
     private val customEditor = TemplateEditor(project, showName = false)
     private val effectiveLabel = JBLabel()
     private var customValues = Template()
+    /** False until custom values exist: saved in the binding, or pre-filled on the first switch to "Custom values". */
+    private var hasCustomValues = false
     private lateinit var customRow: Row
 
     val component: JComponent = panel {
@@ -54,6 +58,7 @@ internal class CurrentProjectPanel(
     init {
         radios.forEach { radio ->
             radio.addActionListener {
+                if (radio === customRadio) prefillCustomValues()
                 updateEnabledState()
                 onChanged()
             }
@@ -62,7 +67,9 @@ internal class CurrentProjectPanel(
     }
 
     fun reset(binding: Binding?) {
-        customValues = binding?.custom?.copy() ?: Template()
+        val saved = binding?.custom
+        hasCustomValues = saved != null
+        customValues = saved?.copy() ?: Template()
         customEditor.load(customValues)
         refreshTemplates(binding?.templateId)
         val selected = when (binding?.mode) {
@@ -95,6 +102,14 @@ internal class CurrentProjectPanel(
     /** One line per entry, so long paths never widen the whole settings page. */
     fun setEffective(lines: List<String>) {
         effectiveLabel.text = lines.joinToString("<br>", "<html>", "</html>") { StringUtil.escapeXmlEntities(it) }
+    }
+
+    /** An empty form here would silently mean "IDE defaults" on OK, so start from what is in effect instead. */
+    private fun prefillCustomValues() {
+        if (hasCustomValues) return
+        hasCustomValues = true
+        customValues = inheritedValues()?.copy(name = "") ?: Template()
+        customEditor.load(customValues)
     }
 
     private fun updateEnabledState() {

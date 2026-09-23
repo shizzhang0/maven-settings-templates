@@ -11,5 +11,6 @@ import io.github.shizzhang0.mavensettingstemplates.core.Trigger
 class MavenSettingsTemplatesStartupActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
         ProjectEvaluator.getInstance(project).evaluate(Trigger.OPEN)
+        DriftWatcher.getInstance(project).attach()
     }
 }

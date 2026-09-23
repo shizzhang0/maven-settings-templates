@@ -1827,6 +1827,8 @@ import javax.swing.JComponent
 internal class CurrentProjectPanel(
     project: Project,
     private val templates: () -> List<Template>,
+    /** Values the project would get from rules / the default template; pre-fills a first "Custom values" edit. */
+    private val inheritedValues: () -> Template?,
     private val onChanged: () -> Unit,
 ) {
     private val followRadio = JBRadioButton(MstBundle.message("current.follow"))
@@ -1840,6 +1842,8 @@ internal class CurrentProjectPanel(
     private val customEditor = TemplateEditor(project, showName = false)
     private val effectiveLabel = JBLabel()
     private var customValues = Template()
+    /** False until custom values exist: saved in the binding, or pre-filled on the first switch to "Custom values". */
+    private var hasCustomValues = false
     private lateinit var customRow: Row
 
     val component: JComponent = panel {
@@ -1861,6 +1865,7 @@ internal class CurrentProjectPanel(
     init {
         radios.forEach { radio ->
             radio.addActionListener {
+                if (radio === customRadio) prefillCustomValues()
                 updateEnabledState()
                 onChanged()
             }
@@ -1869,7 +1874,9 @@ internal class CurrentProjectPanel(
     }
 
     fun reset(binding: Binding?) {
-        customValues = binding?.custom?.copy() ?: Template()
+        val saved = binding?.custom
+        hasCustomValues = saved != null
+        customValues = saved?.copy() ?: Template()
         customEditor.load(customValues)
         refreshTemplates(binding?.templateId)
         val selected = when (binding?.mode) {
@@ -1904,6 +1911,14 @@ internal class CurrentProjectPanel(
         effectiveLabel.text = lines.joinToString("<br>", "<html>", "</html>") { StringUtil.escapeXmlEntities(it) }
     }
 
+    /** An empty form here would silently mean "IDE defaults" on OK, so start from what is in effect instead. */
+    private fun prefillCustomValues() {
+        if (hasCustomValues) return
+        hasCustomValues = true
+        customValues = inheritedValues()?.copy(name = "") ?: Template()
+        customEditor.load(customValues)
+    }
+
     private fun updateEnabledState() {
         templateCombo.isEnabled = templateRadio.isSelected
         customEditor.setEnabled(customRadio.isSelected)
@@ -1929,6 +1944,7 @@ import io.github.shizzhang0.mavensettingstemplates.Presentation
 import io.github.shizzhang0.mavensettingstemplates.core.Binding
 import io.github.shizzhang0.mavensettingstemplates.core.BindingMode
 import io.github.shizzhang0.mavensettingstemplates.core.SettingsResolver
+import io.github.shizzhang0.mavensettingstemplates.core.Template
 import io.github.shizzhang0.mavensettingstemplates.core.TemplatesConfig
 import io.github.shizzhang0.mavensettingstemplates.settings.ProjectRecords
 import io.github.shizzhang0.mavensettingstemplates.settings.TemplatesSettings
@@ -1951,7 +1967,9 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
         val templates = TemplatesPanel(project, ::countReferences, ::onTemplatesChanged)
         val rules = RulesPanel(project) { templates.currentTemplates() }
         val records = ProjectRecordsPanel { templates.currentTemplates() }
-        val current = projectPath?.let { CurrentProjectPanel(project, { templates.currentTemplates() }, ::refreshEffective) }
+        val current = projectPath?.let {
+            CurrentProjectPanel(project, { templates.currentTemplates() }, ::inheritedTemplate, ::refreshEffective)
+        }
         templatesPanel = templates
         rulesPanel = rules
         recordsPanel = records
@@ -2029,6 +2047,14 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
             record.binding?.mode == BindingMode.TEMPLATE && record.binding?.templateId == templateId
         }
         return rules to projects
+    }
+
+    /** The template this project follows without a binding: its deepest folder rule, else the default template. */
+    private fun inheritedTemplate(): Template? {
+        val templates = templatesPanel ?: return null
+        val path = projectPath ?: return null
+        val config = pendingConfig(templates)
+        return SettingsResolver(config).matchingRule(path)?.second ?: config.template(config.defaultTemplateId)
     }
 
     private fun onTemplatesChanged() {
@@ -2134,7 +2160,7 @@ object MstNotifications {
     private const val DRIFT_GROUP = "MavenSettingsTemplates.Drift"
     private const val INFO_GROUP = "MavenSettingsTemplates.Info"
 
-    /** First apply (design §5.2 case 1): a balloon that fades, with Undo. */
+    /** First apply (design §5.2 case 1): a sticky balloon with Undo (design D7). */
     fun applied(project: Project, source: String, onUndo: () -> Unit) {
         group(INFO_GROUP)
             .createNotification(
@@ -2523,7 +2549,7 @@ import io.github.shizzhang0.mavensettingstemplates.apply.SettingsAppliedHandler
         <postStartupActivity implementation="io.github.shizzhang0.mavensettingstemplates.apply.MavenSettingsTemplatesStartupActivity"
                              order="first"/>
         <notificationGroup id="MavenSettingsTemplates.Drift" displayType="STICKY_BALLOON" key="notification.group.drift"/>
-        <notificationGroup id="MavenSettingsTemplates.Info" displayType="BALLOON" key="notification.group.info"/>
+        <notificationGroup id="MavenSettingsTemplates.Info" displayType="STICKY_BALLOON" key="notification.group.info"/>
     </extensions>
 
     <applicationListeners>

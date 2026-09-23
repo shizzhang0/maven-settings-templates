@@ -12,6 +12,8 @@ object SettingsAppliedHandler {
             for (project in ProjectManager.getInstance().openProjects) {
                 if (project.isDisposed) continue
                 ProjectEvaluator.getInstance(project).evaluate(Trigger.SETTINGS_APPLIED)
+                // Projects that were open when the plugin was installed never ran the startup activity.
+                DriftWatcher.getInstance(project).attach()
             }
         })
     }

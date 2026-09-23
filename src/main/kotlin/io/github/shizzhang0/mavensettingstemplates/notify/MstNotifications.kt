@@ -17,7 +17,7 @@ object MstNotifications {
     private const val DRIFT_GROUP = "MavenSettingsTemplates.Drift"
     private const val INFO_GROUP = "MavenSettingsTemplates.Info"
 
-    /** First apply (design §5.2 case 1): a balloon that fades, with Undo. */
+    /** First apply (design §5.2 case 1): a sticky balloon with Undo (design D7). */
     fun applied(project: Project, source: String, onUndo: () -> Unit) {
         group(INFO_GROUP)
             .createNotification(
