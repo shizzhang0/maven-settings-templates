@@ -37,7 +37,12 @@ notification with three choices: **Restore template values**, **Save as project 
 
 ## Requirements
 
-IntelliJ IDEA 2026.2 or newer with the bundled Maven plugin.
+- **IntelliJ IDEA only.** The plugin depends on the Maven plugin bundled with IntelliJ IDEA, so other
+  JetBrains IDEs such as PyCharm or WebStorm cannot install it.
+- **IntelliJ IDEA 2026.2 or newer** (build 262 and later). Older versions cannot install it.
+- Tested with IntelliJ IDEA 2026.2.3 (build 262.10968.63).
+- There is no upper version limit, so later releases can install it. The Maven plugin API changes
+  between major releases, though; if something breaks on a newer IDE, please open an issue.
 
 ## Building
 
