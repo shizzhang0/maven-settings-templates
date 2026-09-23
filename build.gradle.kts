@@ -10,12 +10,32 @@ plugins {
 dependencies {
     testImplementation(libs.junit)
 
-    // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
-        intellijIdea("2025.3.6.1")
+        // Set `intellijPlatformLocalPath` (e.g. in ~/.gradle/gradle.properties) to build against an installed IDE.
+        // Otherwise download the exact build whose Maven API was verified (2026.2.3, 262.10968.63).
+        val localIde = providers.gradleProperty("intellijPlatformLocalPath").orNull
+        if (localIde != null) {
+            local(localIde)
+        } else {
+            intellijIdea("2026.2.3")
+        }
+        bundledPlugin("org.jetbrains.idea.maven")
         testFramework(TestFrameworkType.Platform)
+    }
+}
 
-        // Add plugin dependencies for compilation here, for example:
-        // bundledPlugin("com.intellij.java")
+intellijPlatform {
+    pluginConfiguration {
+        ideaVersion {
+            sinceBuild = "262"
+            // No upper bound: new IDE versions can install the plugin (design decision D1).
+            untilBuild = provider { null }
+        }
+    }
+    pluginVerification {
+        ides {
+            // Verify against the platform the plugin is built with; no extra IDE downloads.
+            current()
+        }
     }
 }
