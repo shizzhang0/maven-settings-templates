@@ -2,9 +2,9 @@ package io.github.shizzhang0.mavensettingstemplates.maven
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
+import com.intellij.util.xmlb.XmlSerializer
 import io.github.shizzhang0.mavensettingstemplates.core.MavenHomeKind
 import io.github.shizzhang0.mavensettingstemplates.core.MavenValues
-import org.jetbrains.idea.maven.buildtool.MavenSyncSpec
 import org.jetbrains.idea.maven.project.BundledMaven3
 import org.jetbrains.idea.maven.project.MavenGeneralSettings
 import org.jetbrains.idea.maven.project.MavenHomeType
@@ -42,13 +42,24 @@ object MavenSettingsAccess {
             is MavenInSpecificPath -> MavenHomeKind.CUSTOM to home.mavenHome
             else -> MavenHomeKind.OTHER to home.title
         }
-        return MavenValues(kind, path, settings.userSettingsFile.orEmpty(), settings.localRepository.orEmpty())
+        return MavenValues(kind, path, settings.userSettingsFile.orEmpty(), localRepository(settings))
     }
 
     fun snapshot(project: Project): RawSnapshot {
         val settings = generalSettings(project)
-        return RawSnapshot(settings.mavenHomeType, settings.userSettingsFile.orEmpty(), settings.localRepository.orEmpty())
+        return RawSnapshot(settings.mavenHomeType, settings.userSettingsFile.orEmpty(), localRepository(settings))
     }
+
+    /**
+     * `getLocalRepository()` is `@ApiStatus.Internal` (the setter is public), so read the value from the settings'
+     * persisted form instead: the same `<option name="localRepository">` that workspace.xml stores. Defaults
+     * (empty) are omitted by the serializer, hence `orEmpty()`.
+     */
+    private fun localRepository(settings: MavenGeneralSettings): String =
+        XmlSerializer.serialize(settings).getChildren("option")
+            .firstOrNull { it.getAttributeValue("name") == "localRepository" }
+            ?.getAttributeValue("value")
+            .orEmpty()
 
     /** Writes [values] on the caller's thread; the batch fires a single `changed()`. */
     fun write(project: Project, values: MavenValues) {
@@ -83,7 +94,9 @@ object MavenSettingsAccess {
         MavenSettingsCache.getInstance(project).reload()
         val manager = MavenProjectsManager.getInstance(project)
         if (manager.isMavenizedProject) {
-            manager.scheduleUpdateAllMavenProjects(MavenSyncSpec.full("Maven Settings Templates"))
+            // Public full sync (scheduleUpdateAllMavenProjects/MavenSyncSpec are experimental). The isMavenizedProject
+            // guard matters: for a non-Maven project this method would import every pom.xml it finds.
+            manager.forceUpdateAllProjectsOrFindAllAvailablePomFiles()
         }
     }
 

@@ -995,16 +995,16 @@ class ProjectRecords : PersistentStateComponent<ProjectRecords.Records> {
 
 - [ ] **Step 4: 实现 `MavenSettingsAccess.kt`**
 
-这里用到的每个 Maven API 都已在设计文档 §3 中核实，且没有标 `@ApiStatus.Internal`。
+这里用到的每个 Maven API 都已在设计文档 §3 中核实。注意**方法级**注解：`getLocalRepository()` 标了 `@ApiStatus.Internal`，所以改用 `XmlSerializer` 读取；`scheduleUpdateAllMavenProjects` / `MavenSyncSpec` 是 `@ApiStatus.Experimental`，所以改用公开的 `forceUpdateAllProjectsOrFindAllAvailablePomFiles()`。Task 8 的 `verifyPlugin` 会检查这些。
 
 ```kotlin
 package io.github.shizzhang0.mavensettingstemplates.maven
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
+import com.intellij.util.xmlb.XmlSerializer
 import io.github.shizzhang0.mavensettingstemplates.core.MavenHomeKind
 import io.github.shizzhang0.mavensettingstemplates.core.MavenValues
-import org.jetbrains.idea.maven.buildtool.MavenSyncSpec
 import org.jetbrains.idea.maven.project.BundledMaven3
 import org.jetbrains.idea.maven.project.MavenGeneralSettings
 import org.jetbrains.idea.maven.project.MavenHomeType
@@ -1042,13 +1042,24 @@ object MavenSettingsAccess {
             is MavenInSpecificPath -> MavenHomeKind.CUSTOM to home.mavenHome
             else -> MavenHomeKind.OTHER to home.title
         }
-        return MavenValues(kind, path, settings.userSettingsFile.orEmpty(), settings.localRepository.orEmpty())
+        return MavenValues(kind, path, settings.userSettingsFile.orEmpty(), localRepository(settings))
     }
 
     fun snapshot(project: Project): RawSnapshot {
         val settings = generalSettings(project)
-        return RawSnapshot(settings.mavenHomeType, settings.userSettingsFile.orEmpty(), settings.localRepository.orEmpty())
+        return RawSnapshot(settings.mavenHomeType, settings.userSettingsFile.orEmpty(), localRepository(settings))
     }
+
+    /**
+     * `getLocalRepository()` is `@ApiStatus.Internal` (the setter is public), so read the value from the settings'
+     * persisted form instead: the same `<option name="localRepository">` that workspace.xml stores. Defaults
+     * (empty) are omitted by the serializer, hence `orEmpty()`.
+     */
+    private fun localRepository(settings: MavenGeneralSettings): String =
+        XmlSerializer.serialize(settings).getChildren("option")
+            .firstOrNull { it.getAttributeValue("name") == "localRepository" }
+            ?.getAttributeValue("value")
+            .orEmpty()
 
     /** Writes [values] on the caller's thread; the batch fires a single `changed()`. */
     fun write(project: Project, values: MavenValues) {
@@ -1083,7 +1094,9 @@ object MavenSettingsAccess {
         MavenSettingsCache.getInstance(project).reload()
         val manager = MavenProjectsManager.getInstance(project)
         if (manager.isMavenizedProject) {
-            manager.scheduleUpdateAllMavenProjects(MavenSyncSpec.full("Maven Settings Templates"))
+            // Public full sync (scheduleUpdateAllMavenProjects/MavenSyncSpec are experimental). The isMavenizedProject
+            // guard matters: for a non-Maven project this method would import every pom.xml it finds.
+            manager.forceUpdateAllProjectsOrFindAllAvailablePomFiles()
         }
     }
 
@@ -2766,7 +2779,7 @@ JAR=$(find ~/.gradle/caches -name "intellij-platform-gradle-plugin-2.19.0.jar" |
 unzip -Z1 "$JAR" | grep -iE "PluginVerification.*Ides" | head
 ```
 
-对找到的 ides 扩展类执行 `javap -cp "$JAR" '<类名>' | grep -i recommended`，确认存在 `recommended()`。如果不存在，按 javap 的实际输出选择一个等价方法，把最终写法告诉用户。不要猜。
+对 `IntelliJPlatformExtension$PluginVerification$Ides` 执行 javap，已确认 2.19.0 提供 `current()`、`recommended()`、`local(...)`、`select {}`。**选用 `current()`**：它用构建时的平台做校验（本机设置了 `intellijPlatformLocalPath` 时就是本机 IDE），不会额外下载 IDE；`recommended()` 会下载多个 IDE 版本，每个都有数 GB。
 
 - [ ] **Step 2: 配置 `pluginVerification`**
 
@@ -2775,7 +2788,8 @@ unzip -Z1 "$JAR" | grep -iE "PluginVerification.*Ides" | head
 ```kotlin
     pluginVerification {
         ides {
-            recommended()
+            // Verify against the platform the plugin is built with; no extra IDE downloads.
+            current()
         }
     }
 ```

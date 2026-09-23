@@ -57,7 +57,7 @@ MavenWorkspaceSettingsComponent.getInstance(project).getSettings().getGeneralSet
 |---|---|
 | Maven home | `getMavenHomeType(): MavenHomeType` / `setMavenHomeType(MavenHomeType)` |
 | User settings file | `getUserSettingsFile(): String` / `setUserSettingsFile(String)` |
-| Local repository | `getLocalRepository(): String` / `setLocalRepository(String)` |
+| Local repository | `setLocalRepository(String)`。**`getLocalRepository()` 在方法级标注了 `@ApiStatus.Internal`**（插件校验会报 INTERNAL_API_USAGES），所以读取时改用 `XmlSerializer.serialize(settings)`，从持久化形式里取 `<option name="localRepository">`，也就是 workspace.xml 保存的同一个字段 |
 | 批量修改 | `beginUpdate()` / `endUpdate()`：中间的多次修改只触发一次 `changed()` |
 | 监听 | `addListener(MavenGeneralSettings.Listener, Disposable)`。`Listener` 只有一个无参的 `changed()`，**拿不到新旧值**，需要自己读当前值来比对 |
 
@@ -75,7 +75,8 @@ MavenWorkspaceSettingsComponent.getInstance(project).getSettings().getGeneralSet
 
 ### 3.4 同步与缓存
 
-- 触发同步：`MavenProjectsManager.getInstance(p).scheduleUpdateAllMavenProjects(MavenSyncSpec.full("<reason>"))`
+- 触发同步：`MavenProjectsManager.getInstance(p).forceUpdateAllProjectsOrFindAllAvailablePomFiles()`，公开且非实验性。它内部调用的是 `scheduleUpdateAllMavenProjects(MavenSyncSpec.full(...))`，但这两个是 `@ApiStatus.Experimental`，不直接用。**前提是先判断 `isMavenizedProject()`**：对非 Maven 项目，这个方法会扫描并导入所有 pom.xml。
+- 核实注解时，**类级别和方法级别都要查**：`MavenGeneralSettings` 类本身没有标注，但 `getLocalRepository()`、`getCustomMavenHome()`、`getToolchainsPathString()` 等方法单独标了 `@ApiStatus.Internal`。
 - 刷新有效路径缓存：`MavenSettingsCache.getInstance(p).reload()`
 - 判断是否为 Maven 项目：`MavenProjectsManager.isMavenizedProject()`
 

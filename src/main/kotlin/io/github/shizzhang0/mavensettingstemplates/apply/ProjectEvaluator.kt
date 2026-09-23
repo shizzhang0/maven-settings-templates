@@ -117,7 +117,6 @@ class ProjectEvaluator(private val project: Project) {
         records.update(key, path) { it.lastApplied = resolved.values }
         ignored = null
         requestSync()
-        LOG.info("MST-DIAG restore ${project.name}: ${resolved.values}") // TEMPORARY
     }
 
     @Synchronized
@@ -130,13 +129,11 @@ class ProjectEvaluator(private val project: Project) {
             it.lastApplied = current
         }
         ignored = null
-        LOG.info("MST-DIAG saveAsCustom ${project.name}: $current") // TEMPORARY, remove with the other MST-DIAG lines
     }
 
     @Synchronized
     private fun ignoreCurrentValues() = guarded {
         if (!project.isDisposed) ignored = MavenSettingsAccess.read(project)
-        LOG.info("MST-DIAG ignore ${project.name}: $ignored") // TEMPORARY
     }
 
     private fun write(values: MavenValues) = selfWrite { MavenSettingsAccess.write(project, values) }

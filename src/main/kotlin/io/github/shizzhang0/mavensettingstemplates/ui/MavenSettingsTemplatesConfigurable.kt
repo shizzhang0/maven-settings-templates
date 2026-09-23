@@ -1,6 +1,5 @@
 package io.github.shizzhang0.mavensettingstemplates.ui
 
-import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
 import com.intellij.ui.dsl.builder.Align
@@ -62,29 +61,22 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
 
     override fun isModified(): Boolean {
         val templates = templatesPanel ?: return false
-        if (pendingConfig(templates) != TemplatesSettings.getInstance().snapshot()) return diag("isModified: templates/rules")
-        if (recordsPanel?.removedKeys().orEmpty().isNotEmpty()) return diag("isModified: record removals")
+        if (pendingConfig(templates) != TemplatesSettings.getInstance().snapshot()) return true
+        if (recordsPanel?.removedKeys().orEmpty().isNotEmpty()) return true
         val current = currentPanel ?: return false
-        val binding = current.currentBinding()
-        val persisted = persistedBinding()
-        return if (binding != persisted) diag("isModified: binding $binding vs persisted $persisted") else false
+        return current.currentBinding() != persistedBinding()
     }
 
     override fun apply() {
         val templates = templatesPanel ?: return
-        // TEMPORARY diagnostics for the lost-edit investigation (MST-DIAG); remove once fixed.
-        val pending = pendingConfig(templates)
-        diag("apply: " + pending.templates.joinToString { "${it.name}=${it.localRepository}" })
-        TemplatesSettings.getInstance().replace(pending)
+        TemplatesSettings.getInstance().replace(pendingConfig(templates))
         val records = ProjectRecords.getInstance()
         records.remove(recordsPanel?.removedKeys().orEmpty())
         val current = currentPanel
         val path = projectPath
         if (current != null && path != null) {
             val binding = current.currentBinding()
-            val persisted = persistedBinding()
-            diag("apply binding: $binding (persisted $persisted)")
-            if (binding != persisted) {
+            if (binding != persistedBinding()) {
                 records.update(ProjectRecords.keyOf(path), path) { it.binding = binding }
             }
         }
@@ -92,13 +84,7 @@ class MavenSettingsTemplatesConfigurable(private val project: Project) : Configu
         SettingsAppliedHandler.onApplied()
     }
 
-    private fun diag(message: String): Boolean {
-        thisLogger().info("MST-DIAG #${System.identityHashCode(this)} $message")
-        return true
-    }
-
     override fun reset() {
-        diag("reset: persisted binding ${persistedBinding()}")
         val config = TemplatesSettings.getInstance().snapshot()
         templatesPanel?.reset(config.templates, config.defaultTemplateId)
         rulesPanel?.reset(config.rules)

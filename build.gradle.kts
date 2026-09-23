@@ -32,4 +32,10 @@ intellijPlatform {
             untilBuild = provider { null }
         }
     }
+    pluginVerification {
+        ides {
+            // Verify against the platform the plugin is built with; no extra IDE downloads.
+            current()
+        }
+    }
 }
