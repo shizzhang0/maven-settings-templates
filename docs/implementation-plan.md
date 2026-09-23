@@ -26,7 +26,7 @@
 - **构建使用本机安装的 IDE，不下载**：`~/.gradle/gradle.properties`（不在仓库里）中设置了
   - `intellijPlatformLocalPath=C:/Users/timothy/AppData/Local/Programs/IntelliJ IDEA`（`build.gradle.kts` 读到这个属性就用 `local(...)`，否则下载 2026.2.3）
   - `org.gradle.java.installations.paths=C:/Users/timothy/AppData/Local/Programs/IntelliJ IDEA/jbr`：2026.2 平台要求用 Java 25 编译，本机只有 JDK 21，所以用 IDE 自带的 JBR 25.0.4 作为工具链。
-  - `runIde` 启动的是这份本机 IDE，但配置、缓存和日志都在 `build/idea-sandbox/` 下，不影响你平时使用的 IDE 配置。
+  - `runIde` 启动的是这份本机 IDE，但配置、缓存和日志都在 `.intellijPlatform/sandbox/` 下，不影响你平时使用的 IDE 配置。
 
 ## 文件结构
 
@@ -844,6 +844,7 @@ Expected: `BUILD SUCCESSFUL`。如果 Task 2 里临时加过 opentest4j 依赖�
 - Create: `src/main/kotlin/io/github/shizzhang0/mavensettingstemplates/settings/ProjectRecords.kt`
 - Create: `src/main/kotlin/io/github/shizzhang0/mavensettingstemplates/maven/MavenSettingsAccess.kt`
 - Create: `src/main/kotlin/io/github/shizzhang0/mavensettingstemplates/Presentation.kt`
+- Create: `src/main/kotlin/io/github/shizzhang0/mavensettingstemplates/ui/Renderers.kt`
 - Create: `src/main/kotlin/io/github/shizzhang0/mavensettingstemplates/ui/TemplateEditor.kt`
 - Create: `src/main/kotlin/io/github/shizzhang0/mavensettingstemplates/ui/TemplatesPanel.kt`
 - Create: `src/main/kotlin/io/github/shizzhang0/mavensettingstemplates/ui/MavenSettingsTemplatesConfigurable.kt`（本任务只有模板区块，Task 5 整体替换）
@@ -1067,8 +1068,9 @@ object MavenSettingsAccess {
         settings.beginUpdate()
         try {
             settings.mavenHomeType = home
-            settings.userSettingsFile = userSettingsFile
-            settings.localRepository = localRepository
+            // Explicit setters: Kotlin exposes these two as read-only properties (getter/setter types differ).
+            settings.setUserSettingsFile(userSettingsFile)
+            settings.setLocalRepository(localRepository)
         } finally {
             settings.endUpdate()
         }
@@ -1134,6 +1136,21 @@ internal object Presentation {
 }
 ```
 
+- [ ] **Step 5b: 实现 `ui/Renderers.kt`**
+
+`SimpleListCellRenderer.create(...)` 的两个重载在 2026.2 都已标记为 deprecated，统一改用 Kotlin UI DSL 的 `textListCellRenderer`（已用 javap 核实存在且未 deprecated）：
+
+```kotlin
+package io.github.shizzhang0.mavensettingstemplates.ui
+
+import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
+import javax.swing.ListCellRenderer
+
+/** A list renderer showing [text] for each item (SimpleListCellRenderer.create is deprecated in 2026.2). */
+internal fun <T : Any> textRenderer(text: (T) -> String): ListCellRenderer<T?> =
+    textListCellRenderer { value: T? -> value?.let(text).orEmpty() }
+```
+
 - [ ] **Step 6: 实现 `TemplateEditor.kt`**
 
 ```kotlin
@@ -1148,18 +1165,20 @@ import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.ui.CollectionComboBoxModel
 import com.intellij.ui.DocumentAdapter
-import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.panel
+import com.intellij.util.ui.JBUI
 import io.github.shizzhang0.mavensettingstemplates.MstBundle
 import io.github.shizzhang0.mavensettingstemplates.Presentation
 import io.github.shizzhang0.mavensettingstemplates.core.MavenHomeKind
 import io.github.shizzhang0.mavensettingstemplates.core.PathNormalizer
 import io.github.shizzhang0.mavensettingstemplates.core.Template
+import java.awt.BorderLayout
 import java.io.File
 import javax.swing.JComponent
+import javax.swing.JPanel
 import javax.swing.event.DocumentEvent
 
 /** Edits the Maven fields of one template; also reused for per-project custom values. */
@@ -1169,7 +1188,7 @@ internal class TemplateEditor(project: Project?, showName: Boolean) {
     private val homeKindCombo = ComboBox(
         CollectionComboBoxModel(listOf(MavenHomeKind.BUNDLED_3, MavenHomeKind.WRAPPER, MavenHomeKind.CUSTOM)),
     ).apply {
-        renderer = SimpleListCellRenderer.create("") { Presentation.homeKind(it) }
+        renderer = textRenderer(Presentation::homeKind)
     }
     private val homePathField = pathField(project, FileChooserDescriptorFactory.singleDir(), "field.mavenHome", null)
     private val userSettingsField = pathField(project, FileChooserDescriptorFactory.singleFile(), "field.userSettings", ".m2/settings.xml")
@@ -1185,9 +1204,13 @@ internal class TemplateEditor(project: Project?, showName: Boolean) {
         if (showName) {
             row(MstBundle.message("field.name")) { cell(nameField).align(AlignX.FILL) }
         }
+        // One cell for both, otherwise the combo shares a grid column with the full-width fields and stretches.
         row(MstBundle.message("field.mavenHome")) {
-            cell(homeKindCombo)
-            cell(homePathField).align(AlignX.FILL)
+            cell(JPanel(BorderLayout(JBUI.scale(6), 0)).apply {
+                isOpaque = false
+                add(homeKindCombo, BorderLayout.WEST)
+                add(homePathField, BorderLayout.CENTER)
+            }).align(AlignX.FILL)
         }
         row(MstBundle.message("field.userSettings")) { cell(userSettingsField).align(AlignX.FILL) }
         row(MstBundle.message("field.localRepository")) { cell(localRepositoryField).align(AlignX.FILL) }
@@ -1243,7 +1266,9 @@ internal class TemplateEditor(project: Project?, showName: Boolean) {
             add(userSettingsField.text)
             add(localRepositoryField.text)
         }
-        val missing = candidates.map { it.trim() }.filter { it.isNotEmpty() && !File(PathNormalizer.expand(it)).exists() }
+        val missing = candidates.filter { it.isNotBlank() }
+            .map { FileUtil.toSystemDependentName(PathNormalizer.expand(it)) }
+            .filterNot { File(it).exists() }
         missingPathsLabel.text = MstBundle.message("editor.missingPaths", missing.joinToString(", "))
         missingPathsLabel.isVisible = missing.isNotEmpty()
     }
@@ -1276,7 +1301,6 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.ui.CollectionListModel
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.JBSplitter
-import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.components.JBList
 import io.github.shizzhang0.mavensettingstemplates.MstBundle
@@ -1305,7 +1329,7 @@ internal class TemplatesPanel(
 
     init {
         list.selectionMode = ListSelectionModel.SINGLE_SELECTION
-        list.cellRenderer = SimpleListCellRenderer.create("") { template ->
+        list.cellRenderer = textRenderer { template ->
             val name = template.name.ifBlank { MstBundle.message("templates.unnamed") }
             if (template.id == defaultTemplateId) "★ $name" else name
         }
@@ -1482,7 +1506,7 @@ Run: `./gradlew runIde`（会打开一个沙盒 IDE）。在沙盒 IDE 里随便
 4. 选中 `Personal` 后点星标按钮，列表中显示为 `★ Personal`；再点一次取消。
 5. 点 Apply 后关闭设置，再重新打开：模板和默认标记都还在。
 6. 复制按钮生成 `CompanyA (copy)`；删除按钮可以删除它（本任务没有规则，所以不会弹确认框）。
-7. 关闭沙盒 IDE，执行 `find build/idea-sandbox -name mavenSettingsTemplates.xml -exec cat {} \;`，文件里能看到模板和 `defaultTemplateId`。
+7. 关闭沙盒 IDE，执行 `find .intellijPlatform/sandbox -name mavenSettingsTemplates.xml -exec cat {} \;`，文件里能看到模板和 `defaultTemplateId`。
 
 - [ ] **Step 12: 检查点**
 
@@ -1553,7 +1577,6 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.ui.CollectionComboBoxModel
 import com.intellij.ui.ColoredTableCellRenderer
-import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.table.JBTable
@@ -1671,7 +1694,7 @@ internal class RulesPanel(private val project: Project?, private val templates: 
 
     private fun templateCombo(): ComboBox<Template> =
         ComboBox(CollectionComboBoxModel(templates())).apply {
-            renderer = SimpleListCellRenderer.create("") { it.name }
+            renderer = textRenderer(Template::name)
         }
 
     private fun sortRules() = rules.sortBy { PathNormalizer.normalize(it.folder) }
@@ -1782,7 +1805,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.ui.CollectionComboBoxModel
-import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBRadioButton
 import com.intellij.ui.dsl.builder.AlignX
@@ -1806,7 +1828,7 @@ internal class CurrentProjectPanel(
     private val notManagedRadio = JBRadioButton(MstBundle.message("current.notManaged"))
     private val radios = listOf(followRadio, templateRadio, customRadio, notManagedRadio)
     private val templateCombo = ComboBox<Template>().apply {
-        renderer = SimpleListCellRenderer.create("") { it.name }
+        renderer = textRenderer(Template::name)
     }
     private val customEditor = TemplateEditor(project, showName = false)
     private val effectiveLabel = JBLabel()
@@ -2528,7 +2550,7 @@ printf '<settings/>\n' > /c/tmp/mst/settings-a.xml
 
 - [ ] **Step 11: 在 runIde 中手动验证**
 
-Run: `./gradlew runIde`。每个场景结束后，在沙盒 IDE 的 idea.log（`find build/idea-sandbox -name idea.log`）里搜索 `via`，核对我们记录的决策。
+Run: `./gradlew runIde`。每个场景结束后，在沙盒 IDE 的 idea.log（`find .intellijPlatform/sandbox -name idea.log`）里搜索 `via`，核对我们记录的决策。
 
 1. **§12 #3 default project 预写入**：配好模板后重启沙盒 IDE。打开 `File > New Projects Setup > Settings for New Projects > Build Tools > Maven`，Local repository 显示 `C:\Users\...\.m2\repo-personal`。如果不是，查看 idea.log 里有没有 `Could not seed the default project`，把结果写进检查点。
 2. **§12 #1 首次应用**：打开 `C:\tmp\mst\CompanyA\demo`。右下角弹出 `Applied template "CompanyA" (folder rule ...)`；Maven 设置页里 User settings file 和 Local repository 是展开后的绝对路径（**§12 #12**）；日志里有 `OPEN demo: FIRST_APPLY`。

@@ -20,5 +20,9 @@
     <resource-bundle>messages.MavenSettingsTemplatesBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
+        <projectConfigurable parentId="MavenSettings"
+                             id="io.github.shizzhang0.mavensettingstemplates"
+                             instance="io.github.shizzhang0.mavensettingstemplates.ui.MavenSettingsTemplatesConfigurable"
+                             key="configurable.displayName"/>
     </extensions>
 </idea-plugin>
