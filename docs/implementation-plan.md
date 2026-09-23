@@ -22,7 +22,11 @@
   - 平台：`"C:/Users/timothy/AppData/Local/Programs/IntelliJ IDEA/lib/*.jar"`（用 `unzip -Z1 <jar> | grep <类路径>` 定位类在哪个 jar）
 - **Git**：在分支 `feature/initial-implementation` 上开发（用户已批准在本项目中执行 `git commit`）。每个任务验证通过后提交一次：提交信息用英文，采用 Conventional Commits 风格（`feat:` / `chore:` / `docs:`），末尾带 `Co-Authored-By` 行。**不要 push，也不要合并到 `main`**，这两件事由用户决定。每个任务的最后一步是"检查点"：提交，并把结果和提交哈希一起汇报给用户。
 - **不保留单元测试**（用户全局规则）。需要验证纯逻辑时，写名为 `*TempTest.kt` 的临时测试，跑通后**在同一个任务内删除**。
-- 所有命令在项目根目录用 Git Bash 执行（`./gradlew ...`）。首次构建会下载 IntelliJ IDEA 2026.2.3，体积 1GB 以上，耗时较长属于正常现象。
+- 所有命令在项目根目录用 Git Bash 执行（`./gradlew ...`）。
+- **构建使用本机安装的 IDE，不下载**：`~/.gradle/gradle.properties`（不在仓库里）中设置了
+  - `intellijPlatformLocalPath=C:/Users/timothy/AppData/Local/Programs/IntelliJ IDEA`（`build.gradle.kts` 读到这个属性就用 `local(...)`，否则下载 2026.2.3）
+  - `org.gradle.java.installations.paths=C:/Users/timothy/AppData/Local/Programs/IntelliJ IDEA/jbr`：2026.2 平台要求用 Java 25 编译，本机只有 JDK 21，所以用 IDE 自带的 JBR 25.0.4 作为工具链。
+  - `runIde` 启动的是这份本机 IDE，但配置、缓存和日志都在 `build/idea-sandbox/` 下，不影响你平时使用的 IDE 配置。
 
 ## 文件结构
 
@@ -119,8 +123,14 @@ dependencies {
     testImplementation(libs.junit)
 
     intellijPlatform {
-        // Compile against exactly the build whose Maven API was verified (262.10968.63).
-        intellijIdea("2026.2.3")
+        // Set `intellijPlatformLocalPath` (e.g. in ~/.gradle/gradle.properties) to build against an installed IDE.
+        // Otherwise download the exact build whose Maven API was verified (2026.2.3, 262.10968.63).
+        val localIde = providers.gradleProperty("intellijPlatformLocalPath").orNull
+        if (localIde != null) {
+            local(localIde)
+        } else {
+            intellijIdea("2026.2.3")
+        }
         bundledPlugin("org.jetbrains.idea.maven")
         testFramework(TestFrameworkType.Platform)
     }

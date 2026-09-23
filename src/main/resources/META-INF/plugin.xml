@@ -1,33 +1,24 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
-    <id>io.github.timothy.maven-settings-templates.maven-settings-templates</id>
+    <id>io.github.shizzhang0.mavensettingstemplates</id>
+    <name>Maven Settings Templates</name>
+    <vendor url="https://github.com/shizzhang0">Timothy</vendor>
 
-    <!-- Public plugin name should be written in Title Case.
-     Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
-    <name>Maven-settings-templates</name>
-
-    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-    <vendor url="https://www.yourcompany.com">YourCompany</vendor>
-
-    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
-         Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
-        Enter short description for your plugin here.<br>
-        <em>most HTML tags may be used</em>
+        Manage Maven home, user settings file and local repository as reusable templates,
+        and apply them to projects automatically.
+        <ul>
+          <li>Map a folder to a template: every project under it uses that template, including new clones and git worktrees.</li>
+          <li>Override the choice for a single project, or leave a project alone.</li>
+          <li>Get notified when the Maven settings of a project drift from its template.</li>
+        </ul>
         ]]></description>
 
-    <!-- Product and plugin compatibility requirements.
-         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.idea.maven</depends>
 
-    <resource-bundle>messages.MyMessageBundle</resource-bundle>
+    <resource-bundle>messages.MavenSettingsTemplatesBundle</resource-bundle>
 
-    <!-- Extensions defined by the plugin.
-         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="MyToolWindow" factoryClass="io.github.timothy.maven-settings-templates.MyToolWindowFactory"
-                    icon="AllIcons.Toolwindows.ToolWindowPalette"/>
     </extensions>
-    
 </idea-plugin>
