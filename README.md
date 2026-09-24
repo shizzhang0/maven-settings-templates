@@ -4,7 +4,8 @@
   <p>Reusable templates for Maven home, <code>settings.xml</code> and local repository,<br>
   applied to each IntelliJ IDEA project automatically.</p>
   <p>
-    <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version 1.0.0"></a>
+    <a href="https://plugins.jetbrains.com/plugin/34443-maven-settings-templates"><img src="https://img.shields.io/jetbrains/plugin/v/34443.svg" alt="JetBrains Marketplace version"></a>
+    <a href="https://plugins.jetbrains.com/plugin/34443-maven-settings-templates"><img src="https://img.shields.io/jetbrains/plugin/d/34443.svg" alt="JetBrains Marketplace downloads"></a>
     <a href="https://www.jetbrains.com/idea/"><img src="https://img.shields.io/badge/IntelliJ%20IDEA-2026.2%2B-orange.svg" alt="IntelliJ IDEA 2026.2+"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License Apache 2.0"></a>
   </p>
@@ -43,13 +44,15 @@ A notification appears when a project's Maven settings no longer match its templ
 
 ## 📦 Installation
 
-The plugin is not on JetBrains Marketplace yet. Install it from a release ZIP:
-
-1. Download the latest `maven-settings-templates-<version>.zip` from
-   [Releases](https://github.com/shizzhang0/maven-settings-templates/releases).
-2. In IntelliJ IDEA, open **Settings | Plugins**, click the gear icon, and choose
-   **Install Plugin from Disk...**.
-3. Select the ZIP file and restart the IDE if asked.
+- **From the IDE**: open **Settings | Plugins | Marketplace**, search for
+  "Maven Settings Templates" and click **Install**.
+- **From JetBrains Marketplace**: open the
+  [plugin page](https://plugins.jetbrains.com/plugin/34443-maven-settings-templates) and click
+  **Install to IDE** (IntelliJ IDEA must be running).
+- **Manually**: download the latest `maven-settings-templates-<version>.zip` from
+  [Releases](https://github.com/shizzhang0/maven-settings-templates/releases), then in
+  **Settings | Plugins** click the gear icon, choose **Install Plugin from Disk...** and select
+  the ZIP file.
 
 ## 🚀 Quick start
 

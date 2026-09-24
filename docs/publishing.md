@@ -1,6 +1,10 @@
 # 发布到 JetBrains Marketplace
 
 > 依据：JetBrains 官方文档《Publishing a Plugin》和《JetBrains Marketplace Approval Guidelines》（2026-09 查阅）。
+>
+> 当前状态：1.0.0 已于 2026-09-24 审核通过并上架，插件页面 <https://plugins.jetbrains.com/plugin/34443-maven-settings-templates>。
+> 账号、签名密钥和首次手动上传都已完成。第一次用 `publishPlugin` 前还要生成发布令牌（第一节第 3 步），
+> 之后每次发版只需要第二、三节，再加第四节的 `publishPlugin`。
 
 ## 一、一次性准备
 
