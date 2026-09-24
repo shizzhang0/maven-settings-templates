@@ -49,7 +49,7 @@ A notification appears when a project's Maven settings no longer match its templ
 - **From JetBrains Marketplace**: open the
   [plugin page](https://plugins.jetbrains.com/plugin/34443-maven-settings-templates) and click
   **Install to IDE** (IntelliJ IDEA must be running).
-- **Manually**: download the latest `maven-settings-templates-<version>.zip` from
+- **Manually**: download the latest plugin ZIP from
   [Releases](https://github.com/shizzhang0/maven-settings-templates/releases), then in
   **Settings | Plugins** click the gear icon, choose **Install Plugin from Disk...** and select
   the ZIP file.

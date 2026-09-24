@@ -1,0 +1,91 @@
+# Publishes the plugin to JetBrains Marketplace when a GitHub release is published, and attaches
+# the signed ZIP to that release. See docs/publishing.md.
+#
+# Running it by hand (Actions > Release > Run workflow) is a dry run: it builds, verifies and signs
+# the plugin and keeps the ZIP as a workflow artifact, but publishes nothing.
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Check secrets
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          missing=""
+          [ -n "$CERTIFICATE_CHAIN" ] || missing="$missing CERTIFICATE_CHAIN"
+          [ -n "$PRIVATE_KEY" ] || missing="$missing PRIVATE_KEY"
+          [ -n "$PRIVATE_KEY_PASSWORD" ] || missing="$missing PRIVATE_KEY_PASSWORD"
+          if [ "$GITHUB_EVENT_NAME" = "release" ] && [ -z "$PUBLISH_TOKEN" ]; then missing="$missing PUBLISH_TOKEN"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            exit 1
+          fi
+
+      - name: Check version and changelog
+        id: version
+        run: |
+          VERSION=$(./gradlew properties --property version -q --console=plain | sed -n 's/^version: //p')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = "release" ] && [ "$GITHUB_REF_NAME" != "v$VERSION" ]; then
+            echo "::error::Release tag $GITHUB_REF_NAME does not match version $VERSION in gradle.properties (expected v$VERSION)."
+            exit 1
+          fi
+          if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no section for $VERSION."
+            exit 1
+          fi
+
+      - name: Build, verify and sign
+        run: ./gradlew buildPlugin verifyPlugin signPlugin verifyPluginSignature
+
+      - name: Publish to JetBrains Marketplace
+        if: github.event_name == 'release'
+        env:
+          ORG_GRADLE_PROJECT_intellijPlatformPublishingToken: ${{ secrets.PUBLISH_TOKEN }}
+        run: ./gradlew publishPlugin
+
+      - name: Attach the ZIP and release notes to the GitHub release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" "build/distributions/maven-settings-templates-$VERSION-signed.zip" --clobber
+          # Fill in the release notes from CHANGELOG.md unless they were written on GitHub.
+          if [ -z "$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)" ]; then
+            ./gradlew getChangelog --project-version="$VERSION" --no-header --no-empty-sections -q --console=plain > release-notes.md
+            gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md
+          fi
+
+      - name: Keep the ZIP of a dry run
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: maven-settings-templates-${{ steps.version.outputs.version }}-signed
+          path: build/distributions/maven-settings-templates-${{ steps.version.outputs.version }}-signed.zip
