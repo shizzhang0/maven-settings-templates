@@ -89,7 +89,7 @@ The plugin remembers what it last wrote to each project:
 
 ## ✅ Compatibility
 
-| | |
+| Requirement | Details |
 |---|---|
 | IDE | **IntelliJ IDEA only.** The plugin depends on the Maven plugin bundled with IntelliJ IDEA, so other JetBrains IDEs such as PyCharm or WebStorm cannot install it. |
 | Version | **2026.2 or newer** (build 262 and later). Older versions cannot install it. |
