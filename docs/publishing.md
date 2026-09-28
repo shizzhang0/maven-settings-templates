@@ -2,7 +2,8 @@
 
 > 依据：JetBrains 官方文档《Publishing a Plugin》和《JetBrains Marketplace Approval Guidelines》（2026-09 查阅）。
 >
-> 当前状态：1.0.0 已于 2026-09-24 审核通过并上架，插件页面 <https://plugins.jetbrains.com/plugin/34443-maven-settings-templates>。
+> 当前状态：已上架，插件页面 <https://plugins.jetbrains.com/plugin/34443-maven-settings-templates>。
+> 1.0.0 于 2026-09-24 首次上架（手动上传）；之后的版本都通过 GitHub Release 自动发布。
 
 发版由 GitHub Actions（`.github/workflows/release.yml`）完成：**在 GitHub 上发布一个 Release，插件就会自动发布到
 JetBrains Marketplace**，签名后的 ZIP 也会附到这个 Release 上。两边的版本号、更新说明和安装包都来自同一份代码。

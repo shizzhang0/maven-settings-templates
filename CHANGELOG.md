@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-28
+
 ### Changed
 
 - The Maven home field works like the one in the IDE's own Maven settings: pick Bundled (Maven 3), the Maven wrapper or a detected Maven installation from the list, or type or browse to a path.
