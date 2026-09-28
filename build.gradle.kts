@@ -50,8 +50,11 @@ intellijPlatform {
         privateKey = providers.environmentVariable("PRIVATE_KEY")
         password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
     }
-    // publishPlugin reads the Marketplace token from the ORG_GRADLE_PROJECT_intellijPlatformPublishingToken
-    // environment variable (the plugin's default property), so no publishing block is needed.
+    // Needed only by publishPlugin (see docs/publishing.md). PUBLISH_TOKEN is also the plugin's own default
+    // (verified in 2.19.0); stated here so it does not depend on that.
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+    }
     pluginVerification {
         ides {
             // Verify against the platform the plugin is built with; no extra IDE downloads.
