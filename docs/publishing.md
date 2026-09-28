@@ -95,7 +95,7 @@ GitHub Actions 不能用的时候，可以在本地用同样的步骤发布。
 $env:CERTIFICATE_CHAIN = Get-Content -Raw "$HOME\.jetbrains-signing\chain.crt"
 $env:PRIVATE_KEY = Get-Content -Raw "$HOME\.jetbrains-signing\private_encrypted.pem"
 $env:PRIVATE_KEY_PASSWORD = [Net.NetworkCredential]::new('', (Read-Host -AsSecureString "Private key password")).Password
-$env:ORG_GRADLE_PROJECT_intellijPlatformPublishingToken = [Net.NetworkCredential]::new('', (Read-Host -AsSecureString "Marketplace token")).Password
+$env:PUBLISH_TOKEN = [Net.NetworkCredential]::new('', (Read-Host -AsSecureString "Marketplace token")).Password
 ```
 
 然后在同一个窗口里：
