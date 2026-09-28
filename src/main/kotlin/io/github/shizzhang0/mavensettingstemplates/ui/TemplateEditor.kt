@@ -11,13 +11,16 @@ import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.ui.TextComponentAccessors
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.util.io.FileUtil
+import com.intellij.ui.ContextHelpLabel
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.TextFieldWithHistoryWithBrowseButton
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.Row
+import com.intellij.ui.components.panels.HorizontalLayout
 import com.intellij.ui.dsl.builder.panel
+import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import io.github.shizzhang0.mavensettingstemplates.MstBundle
 import io.github.shizzhang0.mavensettingstemplates.Presentation
@@ -60,10 +63,22 @@ internal class TemplateEditor(project: Project?, showName: Boolean) {
     private val globalSettingsLabel = PathLabel().apply {
         componentStyle = UIUtil.ComponentStyle.SMALL
     }
+    /** "Global settings: (?)" followed by the path; the help explains how Maven combines the two settings files. */
+    private val globalSettingsLine = JPanel(BorderLayout(JBUI.scale(4), 0)).apply {
+        isOpaque = false
+        add(JPanel(HorizontalLayout(JBUI.scale(2))).apply {
+            isOpaque = false
+            add(JBLabel(MstBundle.message("field.mavenHome.globalSettings")).apply {
+                componentStyle = UIUtil.ComponentStyle.SMALL
+            })
+            add(ContextHelpLabel.create(MstBundle.message("field.mavenHome.globalSettings.help")))
+        }, BorderLayout.WEST)
+        add(globalSettingsLabel, BorderLayout.CENTER)
+    }
     private val homeInfoPanel = JPanel(BorderLayout()).apply {
         isOpaque = false
         add(homeInfoLabel, BorderLayout.NORTH)
-        add(globalSettingsLabel, BorderLayout.CENTER)
+        add(globalSettingsLine, BorderLayout.CENTER)
     }
     private lateinit var homeInfoRow: Row
     private var homeInfoRequest = 0
@@ -206,10 +221,18 @@ internal class TemplateEditor(project: Project?, showName: Boolean) {
         }
         homeInfoLabel.isVisible = version != null || notMavenHome
         val globalSettings = info?.globalSettingsFile
-        globalSettings?.let { globalSettingsLabel.setPath(MstBundle.message("field.mavenHome.globalSettings") + " ", it) }
-        globalSettingsLabel.isVisible = globalSettings != null
-        homeInfoRow.visible(homeInfoLabel.isVisible || globalSettingsLabel.isVisible)
-        info?.let { setIdeDefaultHint(localRepositoryField, it.localRepository) }
+        globalSettings?.let(globalSettingsLabel::setPath)
+        globalSettingsLine.isVisible = globalSettings != null
+        homeInfoRow.visible(homeInfoLabel.isVisible || globalSettingsLine.isVisible)
+        if (info == null) return
+        setIdeDefaultHint(localRepositoryField, info.localRepository)
+        // An empty user settings field means ~/.m2/settings.xml; say so when that file does not exist, because then
+        // only the global settings apply (explained by the help next to "Global settings").
+        setIdeDefaultHint(
+            userSettingsField,
+            info.defaultUserSettingsFile,
+            if (info.defaultUserSettingsExists) "field.hint.ideDefault" else "field.hint.ideDefault.userSettingsMissing",
+        )
     }
 
     private fun updateMissingPaths() {
@@ -238,10 +261,9 @@ internal class TemplateEditor(project: Project?, showName: Boolean) {
         }
     }
 
-    private fun setIdeDefaultHint(field: TextFieldWithBrowseButton, path: String) {
+    private fun setIdeDefaultHint(field: TextFieldWithBrowseButton, path: String, key: String = "field.hint.ideDefault") {
         // The default constructor creates an ExtendableTextField, which is a JBTextField (verified via javap).
-        (field.textField as? JBTextField)?.emptyText?.text =
-            MstBundle.message("field.hint.ideDefault", FileUtil.toSystemDependentName(path))
+        (field.textField as? JBTextField)?.emptyText?.text = MstBundle.message(key, FileUtil.toSystemDependentName(path))
         field.textField.repaint()
     }
 

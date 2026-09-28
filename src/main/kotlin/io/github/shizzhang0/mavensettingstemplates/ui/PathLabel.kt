@@ -10,13 +10,11 @@ import java.awt.Dimension
  * middle to fit, keeping the drive and the file name visible. The tooltip shows the full text.
  */
 internal class PathLabel : JBLabel() {
-    private var prefix = ""
     private var path = ""
 
-    fun setPath(prefix: String, path: String) {
-        this.prefix = prefix
+    fun setPath(path: String) {
         this.path = path
-        toolTipText = prefix + path
+        toolTipText = path
         fit()
     }
 
@@ -31,13 +29,13 @@ internal class PathLabel : JBLabel() {
 
     private fun fit() {
         val available = width - insets.left - insets.right
-        var candidate = prefix + path
+        var candidate = path
         if (available > 0) {
             val metrics = getFontMetrics(font)
             var maxLength = path.length
             while (maxLength > MIN_PATH_CHARS && metrics.stringWidth(candidate) > available) {
                 maxLength--
-                candidate = prefix + StringUtil.shortenPathWithEllipsis(path, maxLength)
+                candidate = StringUtil.shortenPathWithEllipsis(path, maxLength)
             }
         }
         if (text != candidate) text = candidate

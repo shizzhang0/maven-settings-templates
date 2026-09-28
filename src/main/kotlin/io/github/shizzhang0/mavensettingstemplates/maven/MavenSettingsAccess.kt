@@ -134,8 +134,16 @@ object MavenSettingsAccess {
      * @property globalSettingsFile `<home>/conf/settings.xml`, which Maven reads as its global settings; null when the
      *   file does not exist or the home is the wrapper
      * @property localRepository the local repository used when the template leaves it empty
+     * @property defaultUserSettingsFile the user settings file used when the template leaves it empty
+     *   (`~/.m2/settings.xml`); when it does not exist, only the global settings apply
      */
-    class HomeInfo(val version: String?, val globalSettingsFile: String?, val localRepository: String)
+    class HomeInfo(
+        val version: String?,
+        val globalSettingsFile: String?,
+        val localRepository: String,
+        val defaultUserSettingsFile: String,
+        val defaultUserSettingsExists: Boolean,
+    )
 
     /**
      * Resolves [HomeInfo] the way the IDE does. [homePath] and [userSettingsFile] must already be expanded; an empty
@@ -152,7 +160,8 @@ object MavenSettingsAccess {
         // Empty override: resolve from the user settings, then the global settings, then ~/.m2/repository. Like the
         // IDE, a home without its own settings (the wrapper, an invalid path) falls back to the bundled Maven.
         val localRepository = MavenUtil.resolveLocalRepository(project, "", home ?: BundledMaven3, userSettingsFile).toString()
-        return HomeInfo(version, globalSettings, localRepository)
+        val defaultUserSettings = MavenUtil.resolveUserSettingsPath("", project)
+        return HomeInfo(version, globalSettings, localRepository, defaultUserSettings.toString(), Files.isRegularFile(defaultUserSettings))
     }
 
     private fun toPath(path: String): Path? =
