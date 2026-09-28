@@ -58,7 +58,8 @@ A notification appears when a project's Maven settings no longer match its templ
 
 1. Open **Settings | Build, Execution, Deployment | Build Tools | Maven | Settings Templates**.
 2. Add a template for each setup, for example `Personal` and `CompanyA`. Empty fields mean
-   "use the IDE default" (Bundled Maven 3, `~/.m2/settings.xml`, `~/.m2/repository`).
+   "use the IDE default"; the grey hint in each field shows the value that will actually be used
+   (see [How Maven settings files combine](#-how-maven-settings-files-combine)).
    Mark one template as the default with the star button.
 3. Under **Folder Rules**, pick a folder such as `D:\work\CompanyA` and choose a template for it.
 4. Open a project. The plugin applies the matching template and shows a notification with
@@ -75,6 +76,31 @@ For each project the plugin picks the first match:
 4. Otherwise the plugin leaves the project alone.
 
 The settings page shows which of these is in effect for the current project.
+
+## 🧩 How Maven settings files combine
+
+Maven reads two settings files and merges them:
+
+- **Global settings**: `conf/settings.xml` inside the Maven home. Every Maven installation has
+  one. For Bundled Maven 3 and the Maven wrapper it is the unmodified default, so it changes
+  nothing.
+- **User settings**: the template's user settings file, or `~/.m2/settings.xml` when that field
+  is empty.
+
+Where both files set the same value, the user settings file wins. If the user settings file does
+not exist, only the global settings apply. So if you keep your mirrors and local repository in the
+`conf/settings.xml` of your own Maven installation, a template only needs the Maven home.
+
+The local repository is the first of these that is set:
+
+1. The template's local repository
+2. The `maven.repo.local` system property of the IDE
+3. `<localRepository>` in the user settings file
+4. `<localRepository>` in the global settings file
+5. `~/.m2/repository`
+
+The template editor shows the Maven version and global settings file under the Maven home, and
+the grey hint of an empty field shows the file or folder that will actually be used.
 
 ## 🔔 When settings drift
 

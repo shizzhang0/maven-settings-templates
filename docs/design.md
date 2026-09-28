@@ -66,7 +66,18 @@ MavenWorkspaceSettingsComponent.getInstance(project).getSettings().getGeneralSet
 - `BundledMaven3.INSTANCE`、`MavenWrapper.INSTANCE`：Kotlin object
 - `MavenInSpecificPath(String)`：data class，`equals` 只做字符串比较（因此比较前必须先规范化路径，见 §6）
 - `BundledMaven4.INSTANCE`：类存在，但 UI 里没有这个选项，本插件不支持
-- `MavenHomeKt.resolveMavenHomeType(String)`：空串解析为 `BundledMaven3`，匹配到标题时解析为对应类型，其他情况解析为 `MavenInSpecificPath`
+- `MavenHomeKt.resolveMavenHomeType(String)`：空串解析为 `BundledMaven3`，匹配到标题时解析为对应类型，其他情况解析为 `MavenInSpecificPath`。**`MavenHomeKt` 整个文件标注了 `@ApiStatus.Internal`**（`getAllKnownHomes()`、`staticOrBundled()` 也在其中），所以设置页不用它，自己按标题把文字映射回类型（见 §8）
+- 设置页用到的 `MavenUtil` 方法（均无 `ApiStatus` 注解）：
+  - `getSystemMavenHomeVariants(Project)`：从 M2_HOME、MAVEN_HOME、PATH 找到的 Maven 安装，返回 `MavenInSpecificPath` 列表。会读取登录 shell 的环境变量，**阻塞**，不能在 EDT 上调用
+  - `isValidMavenHome(Path)`、`getMavenVersion(StaticResolvedMavenHomeType)`：版本号读自 `<home>/lib/maven-core-*.jar` 里的 `META-INF/maven/org.apache.maven/maven-core/pom.properties`
+  - `resolveGlobalSettingsFile(StaticResolvedMavenHomeType)`：固定为 `<home>/conf/settings.xml`
+  - `resolveLocalRepository(Project, String, StaticResolvedMavenHomeType, String)`：同名的 `(Project, String, String, String)` 重载标注了 `@ApiStatus.ScheduledForRemoval`，不要用
+
+### 3.2.1 全局 settings 与本地仓库（已实测）
+
+- 同步时 `MavenImportUtil.convertSettings` 设置的全局 settings：`.mvn/maven.config` 里的 `-gs`，没有则为 `<同步用的 Maven home>/conf/settings.xml`。所以选自定义 Maven home 时，它的 `conf/settings.xml` 会生效（镜像、仓库、profile 等）。
+- 本地仓库（`MavenEelUtil.resolveLocalRepositoryAsync` + `MavenUtil.doResolveLocalRepository`）按顺序取第一个有值的：设置页的 Local repository → JVM 系统属性 `maven.repo.local` → 用户 settings.xml 的 `<localRepository>`（留空即 `~/.m2/settings.xml`）→ 全局 settings.xml 的 `<localRepository>` → `~/.m2/repository`。
+- 2026-09-28 在沙盒里实测：模板只填自定义 Maven home、另外两项留空，应用后原生设置页（Override 未勾选）显示的本地仓库就是该 Maven `conf/settings.xml` 里配置的路径。
 
 ### 3.3 IDE 原生页面的行为
 
@@ -334,8 +345,14 @@ normalize(p):
 └────────────────────────────────────────────────────────────────┘
 ```
 
-- 三个路径字段都用 `TextFieldWithBrowseButton`：Maven home 和 Local repository 选文件夹，User settings file 选文件。输入框可以手动编辑，这样才能写 `${user.home}`。
-- 字段留空时，用灰色占位文字显示 IDE 默认值。
+- Maven home 和 IDE 原生页面一样，是可编辑下拉框加 `…` 按钮（`TextFieldWithHistoryWithBrowseButton`）：
+  - 选项为 Bundled (Maven 3)、Use Maven wrapper，以及后台检测到的 Maven 安装（§3.2）。
+  - 文字等于前两个标题时对应这两种类型，留空按 Bundled 处理，其他文字一律当作自定义路径。
+  - 下方显示版本号和全局 settings 文件（§3.2.1）；自定义路径是已存在的文件夹但不是 Maven 目录时，给出警告。全局 settings 用 `PathLabel` 显示，路径过长时从中间省略，不会撑宽页面。
+  - 保存时，只有自定义路径才写 `mavenHomePath`；其他类型保留原值，避免仅仅查看模板就让页面变成"已修改"。
+- User settings file 和 Local repository 用 `TextFieldWithBrowseButton`，分别选文件和文件夹。输入框可以手动编辑，这样才能写 `${user.home}`。
+- 字段留空时，用灰色占位文字显示 IDE 默认值。Local repository 的占位文字按 §3.2.1 的顺序实际解析，随 Maven home 和 User settings file 变化。
+- 版本号、全局 settings、本地仓库的解析都在后台线程里做，结果回到 EDT 时丢弃过期的请求。
 - 从 "Settings for New Projects"（default project）打开时，隐藏 Current Project 区块。
 - 校验：规则文件夹重复时不允许 Apply；路径不存在时只给出警告，不阻止保存。
 - 规则列表按文件夹路径排序显示，不支持手动排序。

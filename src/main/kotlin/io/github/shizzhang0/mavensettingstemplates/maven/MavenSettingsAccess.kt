@@ -13,6 +13,11 @@ import org.jetbrains.idea.maven.project.MavenProjectsManager
 import org.jetbrains.idea.maven.project.MavenSettingsCache
 import org.jetbrains.idea.maven.project.MavenWorkspaceSettingsComponent
 import org.jetbrains.idea.maven.project.MavenWrapper
+import org.jetbrains.idea.maven.project.StaticResolvedMavenHomeType
+import org.jetbrains.idea.maven.utils.MavenUtil
+import java.nio.file.Files
+import java.nio.file.InvalidPathException
+import java.nio.file.Path
 
 /**
  * The only file that touches the Maven plugin API. Every call was verified with javap against
@@ -113,4 +118,52 @@ object MavenSettingsAccess {
         MavenHomeKind.WRAPPER -> MavenWrapper.title
         MavenHomeKind.CUSTOM, MavenHomeKind.OTHER -> null
     }
+
+    /**
+     * Maven installations the IDE finds through M2_HOME, MAVEN_HOME and PATH, the same list its own Maven home field
+     * offers. Blocking (reads the login shell environment): call off the EDT.
+     */
+    fun detectedMavenHomes(project: Project): List<String> =
+        MavenUtil.getSystemMavenHomeVariants(project).filterIsInstance<MavenInSpecificPath>().map { it.mavenHome }
+
+    /**
+     * What the IDE derives from a Maven home and user settings file.
+     *
+     * @property version the Maven version; null for the wrapper (each project pins its own) and for a folder that is
+     *   not a Maven home
+     * @property globalSettingsFile `<home>/conf/settings.xml`, which Maven reads as its global settings; null when the
+     *   file does not exist or the home is the wrapper
+     * @property localRepository the local repository used when the template leaves it empty
+     * @property defaultUserSettingsFile the user settings file used when the template leaves it empty
+     *   (`~/.m2/settings.xml`); when it does not exist, only the global settings apply
+     */
+    class HomeInfo(
+        val version: String?,
+        val globalSettingsFile: String?,
+        val localRepository: String,
+        val defaultUserSettingsFile: String,
+        val defaultUserSettingsExists: Boolean,
+    )
+
+    /**
+     * Resolves [HomeInfo] the way the IDE does. [homePath] and [userSettingsFile] must already be expanded; an empty
+     * [userSettingsFile] means the IDE default. Reads files and may block: call off the EDT.
+     */
+    fun homeInfo(project: Project, kind: MavenHomeKind, homePath: String, userSettingsFile: String): HomeInfo {
+        val home: StaticResolvedMavenHomeType? = when (kind) {
+            MavenHomeKind.BUNDLED_3 -> BundledMaven3
+            MavenHomeKind.CUSTOM -> toPath(homePath)?.takeIf(MavenUtil::isValidMavenHome)?.let { MavenInSpecificPath(homePath) }
+            MavenHomeKind.WRAPPER, MavenHomeKind.OTHER -> null
+        }
+        val version = home?.let(MavenUtil::getMavenVersion)
+        val globalSettings = home?.let(MavenUtil::resolveGlobalSettingsFile)?.takeIf(Files::isRegularFile)?.toString()
+        // Empty override: resolve from the user settings, then the global settings, then ~/.m2/repository. Like the
+        // IDE, a home without its own settings (the wrapper, an invalid path) falls back to the bundled Maven.
+        val localRepository = MavenUtil.resolveLocalRepository(project, "", home ?: BundledMaven3, userSettingsFile).toString()
+        val defaultUserSettings = MavenUtil.resolveUserSettingsPath("", project)
+        return HomeInfo(version, globalSettings, localRepository, defaultUserSettings.toString(), Files.isRegularFile(defaultUserSettings))
+    }
+
+    private fun toPath(path: String): Path? =
+        if (path.isBlank()) null else try { Path.of(path) } catch (_: InvalidPathException) { null }
 }
