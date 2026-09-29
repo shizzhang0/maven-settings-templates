@@ -338,10 +338,11 @@ normalize(p):
 │ ☑ D:\work\CompanyA           → CompanyA                        │
 │ ☑ D:\work\CompanyA\legacy    → Legacy                          │
 └────────────────────────────────────────────────────────────────┘
-┌ Project Records ───────────────────────────────────────────────┐
-│ Path                              Binding     [Remove][Remove missing]│
-│ D:\work\CompanyA\order-service    Follow rules                  │
-│ D:\old\demo (missing)             Not managed                   │
+┌ Project Records (projects this plugin has managed) ───────────┐
+│ [-][Remove missing]                                            │
+│ Project           Binding               Status                 │
+│ order-service     Follow rules                                 │
+│ demo              Not managed           Missing                │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -356,6 +357,11 @@ normalize(p):
 - 从 "Settings for New Projects"（default project）打开时，隐藏 Current Project 区块。
 - 校验：规则文件夹重复时不允许 Apply；路径不存在时只给出警告，不阻止保存。
 - 规则列表按文件夹路径排序显示，不支持手动排序。
+- Project Records：
+  - Project 列只显示项目名（路径最后一段），鼠标悬停显示完整路径；按项目名排序。
+  - 不显示 lastApplied：三个值放一列太挤，而且对多数人是实现细节。
+  - 删除（`-` 和 Remove missing）一律先弹确认框。确认框写明删几条；其中有单独设置（Binding 不是 Follow rules）的，逐条列出，并说明这些设置会丢失、项目会回到文件夹规则和默认模板；最后说明下次打开时按首次接管处理。删除仍然要点 OK / Apply 才生效。
+  - 不自动清理 Missing 的记录：文件夹不存在也可能是 U 盘、网络盘没接上，自动删会丢掉项目的单独设置。
 
 ## 9. 代码结构
 

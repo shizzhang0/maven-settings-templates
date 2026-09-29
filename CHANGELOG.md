@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Project Records shows project names, with the full path as a tooltip, and its title says what the table is.
+- Removing project records asks for confirmation first, and lists any per-project settings that would be lost.
+
 ## [1.1.0] - 2026-09-28
 
 ### Changed
