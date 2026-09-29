@@ -1,19 +1,23 @@
 package io.github.shizzhang0.mavensettingstemplates.ui
 
-import com.intellij.icons.AllIcons
-import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.ui.ToolbarDecorator
+import com.intellij.ui.components.ActionLink
+import com.intellij.ui.components.JBLabel
+import com.intellij.ui.components.panels.HorizontalLayout
 import com.intellij.ui.table.JBTable
+import com.intellij.util.ui.JBUI
 import io.github.shizzhang0.mavensettingstemplates.MstBundle
 import io.github.shizzhang0.mavensettingstemplates.core.Binding
 import io.github.shizzhang0.mavensettingstemplates.core.BindingMode
 import io.github.shizzhang0.mavensettingstemplates.core.ProjectRecord
 import io.github.shizzhang0.mavensettingstemplates.core.Template
+import java.awt.BorderLayout
 import java.awt.event.MouseEvent
 import java.io.File
 import javax.swing.JComponent
+import javax.swing.JPanel
 import javax.swing.table.AbstractTableModel
 
 /** Every project the plugin has seen. Removing a record makes the next open of that project a first apply. */
@@ -48,25 +52,40 @@ internal class ProjectRecordsPanel(private val templates: () -> List<Template>) 
             rows.getOrNull(rowAtPoint(event.point))?.let { FileUtil.toSystemDependentName(it.second.path) }
     }
 
-    val component: JComponent = ToolbarDecorator.createDecorator(table)
-        .disableAddAction()
-        .setRemoveAction { remove(table.selectedRows.map { rows[it].first }) }
-        .addExtraAction(DumbAwareAction.create(MstBundle.message("records.removeMissing"), AllIcons.Actions.GC) {
-            remove(rows.filterNot { File(it.second.path).exists() }.map { it.first })
-        })
-        .disableUpDownActions()
-        .createPanel()
+    /** "2 projects no longer exist. Remove them" under the table, shown only while there are missing projects. */
+    private val missingLabel = JBLabel()
+    private val removeMissingLink = ActionLink("") { remove(missingKeys()) }
+    private val missingRow = JPanel(HorizontalLayout(JBUI.scale(6))).apply {
+        isOpaque = false
+        border = JBUI.Borders.emptyTop(4)
+        add(missingLabel)
+        add(removeMissingLink)
+        isVisible = false
+    }
+
+    val component: JComponent = JPanel(BorderLayout()).apply {
+        isOpaque = false
+        add(
+            ToolbarDecorator.createDecorator(table)
+                .disableAddAction()
+                .setRemoveAction { remove(table.selectedRows.map { rows[it].first }) }
+                .disableUpDownActions()
+                .createPanel(),
+            BorderLayout.CENTER,
+        )
+        add(missingRow, BorderLayout.SOUTH)
+    }
 
     fun reset(records: List<Pair<String, ProjectRecord>>) {
         pendingRemovals.clear()
         rows.clear()
         rows += records.sortedWith(compareBy({ projectName(it.second).lowercase() }, { it.second.path.lowercase() }))
-        tableModel.fireTableDataChanged()
+        changed()
     }
 
     fun removedKeys(): Set<String> = pendingRemovals.toSet()
 
-    fun refresh() = tableModel.fireTableDataChanged()
+    fun refresh() = changed()
 
     /** Asks first, saying which per-project settings would be lost. Nothing is saved until OK or Apply. */
     private fun remove(keys: Collection<String>) {
@@ -74,8 +93,18 @@ internal class ProjectRecordsPanel(private val templates: () -> List<Template>) 
         if (removing.isEmpty() || !confirmRemoval(removing.map { it.second })) return
         pendingRemovals += keys
         rows.removeAll { it.first in keys }
-        tableModel.fireTableDataChanged()
+        changed()
     }
+
+    private fun changed() {
+        tableModel.fireTableDataChanged()
+        val missing = missingKeys().size
+        missingLabel.text = MstBundle.message("records.missing.summary", missing)
+        removeMissingLink.text = MstBundle.message("records.missing.remove", missing)
+        missingRow.isVisible = missing > 0
+    }
+
+    private fun missingKeys(): List<String> = rows.filterNot { File(it.second.path).exists() }.map { it.first }
 
     private fun confirmRemoval(records: List<ProjectRecord>): Boolean {
         val ownSettings = records.filter { it.binding != null }

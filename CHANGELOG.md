@@ -8,6 +8,7 @@
 
 - Project Records shows project names, with the full path as a tooltip, and its title says what the table is.
 - Removing project records asks for confirmation first, and lists any per-project settings that would be lost.
+- Projects that no longer exist are summed up under the table with a "Remove them" link, instead of an unlabeled toolbar icon.
 
 ## [1.1.0] - 2026-09-28
 

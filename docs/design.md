@@ -339,10 +339,11 @@ normalize(p):
 │ ☑ D:\work\CompanyA\legacy    → Legacy                          │
 └────────────────────────────────────────────────────────────────┘
 ┌ Project Records (projects this plugin has managed) ───────────┐
-│ [-][Remove missing]                                            │
+│ [-]                                                            │
 │ Project           Binding               Status                 │
 │ order-service     Follow rules                                 │
 │ demo              Not managed           Missing                │
+│ 1 project no longer exists. Remove it                          │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -360,7 +361,8 @@ normalize(p):
 - Project Records：
   - Project 列只显示项目名（路径最后一段），鼠标悬停显示完整路径；按项目名排序。
   - 不显示 lastApplied：三个值放一列太挤，而且对多数人是实现细节。
-  - 删除（`-` 和 Remove missing）一律先弹确认框。确认框写明删几条；其中有单独设置（Binding 不是 Follow rules）的，逐条列出，并说明这些设置会丢失、项目会回到文件夹规则和默认模板；最后说明下次打开时按首次接管处理。删除仍然要点 OK / Apply 才生效。
+  - 工具栏只有 `-`。有 Missing 记录时，表格下方显示一行 "N projects no longer exist. Remove them"（链接），没有时不显示。原来工具栏上的 Remove Missing 图标看起来像第二个删除按钮，要悬停才知道是什么，所以换成这种形式。
+  - 删除（`-` 和 Remove them）一律先弹确认框。确认框写明删几条；其中有单独设置（Binding 不是 Follow rules）的，逐条列出，并说明这些设置会丢失、项目会回到文件夹规则和默认模板；最后说明下次打开时按首次接管处理。删除仍然要点 OK / Apply 才生效。
   - 不自动清理 Missing 的记录：文件夹不存在也可能是 U 盘、网络盘没接上，自动删会丢掉项目的单独设置。
 
 ## 9. 代码结构
