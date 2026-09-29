@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-29
+
 ### Changed
 
 - Project Records shows project names, with the full path as a tooltip, and its title says what the table is.
