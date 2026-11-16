@@ -1,4 +1,5 @@
 import org.jetbrains.changelog.Changelog
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -7,14 +8,16 @@ plugins {
     id("org.jetbrains.intellij.platform")
 }
 
+// Set `intellijPlatformLocalPath` (e.g. in ~/.gradle/gradle.properties) to build against an installed IDE.
+val localIde: String? = providers.gradleProperty("intellijPlatformLocalPath").orNull
+
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
 dependencies {
     testImplementation(libs.junit)
 
     intellijPlatform {
-        // Set `intellijPlatformLocalPath` (e.g. in ~/.gradle/gradle.properties) to build against an installed IDE.
-        // Otherwise download the exact build whose Maven API was verified (2026.2.3, 262.10968.63).
-        val localIde = providers.gradleProperty("intellijPlatformLocalPath").orNull
+        // Without a local IDE, build against 2026.2.3 (262.10968.63): the oldest supported release, whose Maven API
+        // design §3 verified (and re-checked on 2026.3).
         if (localIde != null) {
             local(localIde)
         } else {
@@ -57,8 +60,13 @@ intellijPlatform {
     }
     pluginVerification {
         ides {
-            // Verify against the platform the plugin is built with; no extra IDE downloads.
+            // The platform the plugin is built with: 2026.2.3, the oldest supported release, unless a local IDE is set.
             current()
+            // The newest release as well, so a release build checks both ends of the supported range. Skipped with a
+            // local IDE, which is usually the newest release already, so local builds download no extra IDE.
+            if (localIde == null) {
+                create(IntelliJPlatformType.IntellijIdea, "2026.3")
+            }
         }
     }
 }

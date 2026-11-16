@@ -21,7 +21,7 @@ import java.nio.file.Path
 
 /**
  * The only file that touches the Maven plugin API. Every call was verified with javap against
- * IntelliJ IDEA 2026.2.3 (build 262.10968.63); see design §3.
+ * IntelliJ IDEA 2026.2.3 (build 262.10968.63) and re-checked on 2026.3 (build 263.7307.200); see design §3.
  */
 object MavenSettingsAccess {
 
