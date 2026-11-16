@@ -119,7 +119,7 @@ The plugin remembers what it last wrote to each project:
 |---|---|
 | IDE | **IntelliJ IDEA only.** The plugin depends on the Maven plugin bundled with IntelliJ IDEA, so other JetBrains IDEs such as PyCharm or WebStorm cannot install it. |
 | Version | **2026.2 or newer** (build 262 and later). Older versions cannot install it. |
-| Tested with | IntelliJ IDEA 2026.2.3 (build 262.10968.63) |
+| Tested with | IntelliJ IDEA 2026.2.3 (build 262.10968.63) and 2026.3 (build 263.7307.200) |
 
 There is no upper version limit, so later releases can install the plugin. The Maven plugin API
 changes between major releases, though; if something breaks on a newer IDE, please
@@ -134,7 +134,8 @@ changes between major releases, though; if something breaks on a newer IDE, plea
 The plugin ZIP is written to `build/distributions/`. Other useful tasks:
 
 - `./gradlew runIde` starts a sandbox IDE with the plugin installed.
-- `./gradlew verifyPlugin` runs the JetBrains Plugin Verifier.
+- `./gradlew verifyPlugin` runs the JetBrains Plugin Verifier against IntelliJ IDEA 2026.2.3 and 2026.3, or
+  against only your own IDE when `intellijPlatformLocalPath` is set (see below).
 
 By default the build downloads IntelliJ IDEA 2026.2.3. To build against an IDE you already have,
 set the `intellijPlatformLocalPath` Gradle property, for example in `~/.gradle/gradle.properties`:
