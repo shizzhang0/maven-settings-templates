@@ -44,6 +44,13 @@
 
 以下结论全部来自对本机 `plugins/maven-plugin/lib/intellij.maven.jar` 的 `javap` 反编译，不是凭记忆写的。
 
+**2026.3（IU-263.7307.200）复核**（2026-11-16）：
+- 本节用到的类和方法在 263 中签名不变。`MavenGeneralSettings`、`MavenSettingsCache`、`MavenHome.kt`（各 home 类型）、`MavenWorkspaceSettingsComponent` 在 intellij-community 的 262、263 分支间源码完全相同。
+- `getAllKnownHomes()` 仍只返回 `[BundledMaven3, MavenWrapper]`，D2 不变。内置 Maven 为 3.9.16。
+- `MavenUtil.getSystemMavenHomeVariants` 的 `@RequiresBackgroundThread` 在 263 中不再生成运行时断言。本插件本来就在后台线程调用它，不受影响。
+- Maven 自己的设置页在 263 中由 Swing 表单改写为 Kotlin UI。`projectConfigurable id="MavenSettings"` 仍然存在，本插件的 `parentId` 不变。
+- 以本机 2026.3 为平台编译无警告，Plugin Verifier 结果为 Compatible。
+
 ### 3.1 读写设置
 
 ```text
